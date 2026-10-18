@@ -141,6 +141,9 @@ const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 let sw = 0, sh = 0, dpr = 1, scale = 1, viewH = 600;
 function resize() {
+  // 大きさが0の間（隠れた画面、読み込み途中のアプリ内ブラウザなど）は計算しない。
+  // 0で割ると壊れた値になり、カメラ B がずれたまま戻らなくなるため。大きさが決まったら frame() がやり直す
+  if (!(window.innerWidth > 0 && window.innerHeight > 0)) return;
   dpr = Math.min(2, window.devicePixelRatio || 1);
   sw = window.innerWidth; sh = window.innerHeight;
   canvas.width = Math.round(sw * dpr); canvas.height = Math.round(sh * dpr);
@@ -149,6 +152,8 @@ function resize() {
   const needH = H + C.VIEW_MARGIN * 2;
   scale = Math.min(sw / needW, sh / needH);  // A と B で同じ大きさに映す
   viewH = sh / scale;                         // 画面に映る世界の高さ
+  // まだ動き出す前なら、B のカメラを新しい大きさの始まりの位置に合わせ直す
+  if (G && cam.mode === 'b' && G.phase === 'stuck') cam.y = cam.s1 = camBounds()[0];
 }
 
 // ---------------------------------------------------------------------
@@ -655,6 +660,8 @@ function camTargetB() {
 }
 function updateCamera(dt) {
   if (cam.mode === 'a') { cam.y = cam.s1 = camTargetA(); return; }
+  // 念のため：位置が壊れた値になっていたら、今の目標から始め直す
+  if (!Number.isFinite(cam.y) || !Number.isFinite(cam.s1)) cam.y = cam.s1 = camTargetB();
   // 2段のなめらかさ：急に動き出さず、行き過ぎもしない
   const a = 1 - Math.exp(-dt / C.CAM_B_SMOOTH);
   cam.s1 += (camTargetB() - cam.s1) * a;
@@ -861,6 +868,8 @@ function drawIcon() {
 const DT = 1 / 120;
 let lastNow = performance.now(), acc = 0;
 function frame(now) {
+  // 大きさが変わったのに resize が来ない時（大きさ0から決まった時など）も、ここで合わせる
+  if (window.innerWidth !== sw || window.innerHeight !== sh) resize();
   let dt = (now - lastNow) / 1000;
   lastNow = now;
   dt = paused ? 0 : clamp(dt, 0, 0.1);
