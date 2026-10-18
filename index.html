@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#1b2027">
-<title>しずく 試作1</title>
+<title>しずく 試作2</title>
 <style>
   html, body { margin: 0; height: 100%; overflow: hidden; background: #1b2027; }
   body { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
@@ -26,7 +26,7 @@ const CONFIG = {
   // --- 窓 ---
   PANE_W: 360,              // ガラス1枚の幅
   PANE_H: 520,              // ガラス1枚の高さ
-  PANE_COUNT: 9,            // 縦に並ぶガラスの枚数（多いほど長く遊ぶ）
+  PANE_COUNT: 10,           // 縦に並ぶガラスの枚数（場面の数。下の SCENES と同じ数にする）
   BAR: 14,                  // ガラスとガラスの間の桟（さん）の太さ
   FRAME: 18,                // 左右と上の窓枠の太さ
   SILL: 34,                 // 下の窓枠（ゴール）の太さ
@@ -45,13 +45,49 @@ const CONFIG = {
   TREMBLE: 0.8,             // 押している間の震えの大きさ
   TREMBLE_HZ: 14,           // 震えの速さ（1秒に何回）
 
-  // --- プレイヤーの雫：動ける時 ---
+  // --- プレイヤーの雫：動ける時（半径 MOVE_R の時の値）---
   MOVE_R: 13,               // 水をもらって動けるようになった後の半径
   FALL_SPEED: 110,          // 下へ流れる速さ（毎秒）
-  FALL_ACCEL_TIME: 1.0,     // 止まった状態から FALL_SPEED になるまでの秒数
+  FALL_ACCEL_TIME: 1.0,     // 止まった状態から流れる速さになるまでの秒数
   STEER_SPEED: 95,          // 左右の効き（横に動く最大の速さ、毎秒）
   STEER_RESPONSE: 5,        // 左右の入力への反応の速さ（大きいほどきびきび）
   STEER_SLOW: 0.25,         // 横に最大の速さで動いた時、下へ進む速さが落ちる割合
+
+  // --- 大きさで変わること（混ざって大きくなるほど）---
+  FALL_SIZE_EXP: 1.2,       // 速く流れる強さ。速さ = FALL_SPEED ×（半径÷MOVE_R）^これ
+  FALL_MAX: 175,            // 流れる速さの上限（画面が速く流れすぎないように）
+  STEER_SIZE_EXP: 2.0,      // 曲がりにくくなる強さ。横の速さ = STEER_SPEED ×（MOVE_R÷半径）^これ
+  STEER_RESPONSE_EXP: 1.5,  // 反応が鈍くなる強さ。反応 = STEER_RESPONSE ×（MOVE_R÷半径）^これ
+
+  // --- ほかの雫 ---
+  OTHER_SPEED: 35,          // ほかの雫が流れる速さ（半径10の時、毎秒）。プレイヤーより遅いので追いつく
+  OTHER_SPEED_PER_R: 2,     // 半径が1大きいごとに、速くなる分
+  OTHER_SPAWN_AHEAD: 260,   // プレイヤーがこの距離まで近づいたら、ほかの雫がガラスに現れる
+  OTHER_FORM_TIME: 0.6,     // 現れる時に、ふくらむ時間（秒）。その間は動かない
+  MERGE_TIME: 0.3,          // 触れてから、ひとつになるまでの時間（秒）
+
+  // --- 寄ってくる（M キーで切り替え）---
+  PULL_RANGE_X: 120,        // 横にこの距離より近い雫が寄ってくる（いちばん近い1つだけ）
+  PULL_RANGE_Y: 260,        // プレイヤーより下で、縦にこの距離より近い雫が寄ってくる
+  PULL_ACCEL: 60,           // 寄ってくる強さ
+  PULL_MAX: 30,             // 寄ってくる横の速さの上限（いちばん曲がりにくい時の自分よりも遅い）
+
+  // --- すき間（塊）---
+  LUMP_R: 9,                // 塊の厚みの半分
+  GAP_PASS_R: 14.5,         // この半径より小さい雫だけがすき間を通れる（すき間の幅 = この2倍）
+  SLIDE_SPEED: 70,          // 大きい雫が、塊の上を横へすべる速さ
+  GAP_CAPTURE: 22,          // 小さい雫が、すき間の中心から左右この距離以内に来たら、すき間へ吸い込まれる
+
+  // --- 汚れ ---
+  GRIME_PUSH_R: 16,         // この半径から、汚れを押し流して進める（それより小さいと引っかかる）
+  GRIME_PUSH_SLOW: 0.6,     // 押し流している間の、下へ進む速さ（何倍に落ちるか）
+  GRIME_RESCUE_DELAY: 1.5,  // 引っかかってから、上に助けの雫が現れるまでの秒数
+  GRIME_RESCUE_DIST: 180,   // 助けの雫が現れる高さ（プレイヤーの上）
+  GRIME_RESCUE_SPEED: 110,  // 助けの雫が流れてくる速さ
+  GRIME_FREE_ACCEL: 0.6,    // 抜けてから、流れる速さに戻るまでの秒数
+
+  // --- 光る粒 ---
+  GRAIN_R: 4.5,             // 光る粒の半径（スマホでも見えるように）
 
   // --- 親友の雫 ---
   FRIEND_DELAY: 5.0,        // 始まってから親友が現れるまでの秒数
@@ -63,11 +99,9 @@ const CONFIG = {
   TRANSFER_TIME: 0.9,       // 水が移る時間（秒）
   FRIEND_GAP: 150,          // 親友がプレイヤーの先（下）を行く距離。この距離を保とうとする
   FRIEND_WAIT_GAP: 260,     // これより離れたら、親友は止まって待つ
-  FRIEND_MAX_SPEED: 1.4,    // 親友がいちばん速い時（FALL_SPEED の何倍か）
-  FRIEND_SWAY: 45,          // 親友の左右のゆれの幅
-  FRIEND_SWAY_LEN: 520,     // ゆれ1回分の縦の長さ
-  FRIEND_DRIFT: 55,         // ゆっくりした左右の寄り道の幅
-  FRIEND_DRIFT_LEN: 1700,   // 寄り道1回分の縦の長さ
+  FRIEND_MAX_SPEED: 1.4,    // 親友がいちばん速い時（プレイヤーの流れる速さの何倍か）
+  FRIEND_SWAY: 6,           // 親友の左右のゆれの幅（通り道が狭い所もあるので小さく）
+  FRIEND_SWAY_LEN: 300,     // ゆれ1回分の縦の長さ
 
   // --- 跡 ---
   TRAIL_WIDTH: 0.55,        // 跡の太さ（雫の直径に対する割合）
@@ -94,16 +128,21 @@ const CONFIG = {
   SLIDE_VOLUME: 0.035,      // 流れている間の水の音の大きさ
 };
 
-// 色（壁・ガラス・枠・雫）。色数は増やさない。
+// 色（壁・ガラス・枠・塊・汚れ・雫）。色数は増やさない（灰色の濃さ違いだけ）。
 const COL = {
   wall: '#1b2027',
   glass: '#2b3744',
   frame: '#46505c',
   frameEdge: '#56616e',
+  lump: '#59626d',
+  lumpEdge: '#6b7581',
+  grime: '150,148,138',
+  grimeSpeck: '16,18,20',
   drop: '190,210,226',
   light: '238,245,250',
 };
 const FRIEND_ALPHA = 0.7;  // 親友の雫の濃さ（プレイヤーは 1）
+const OTHER_ALPHA = 0.85;  // ほかの雫の濃さ
 
 // ---------------------------------------------------------------------
 //  小さな道具
@@ -123,6 +162,11 @@ function angDiff(a, b) {
   return d;
 }
 
+// 大きさで変わること
+const sizeFall = r => Math.min(C.FALL_MAX, C.FALL_SPEED * Math.pow(r / C.MOVE_R, C.FALL_SIZE_EXP));
+const sizeSteer = r => C.STEER_SPEED * Math.pow(C.MOVE_R / r, C.STEER_SIZE_EXP);
+const sizeResponse = r => C.STEER_RESPONSE * Math.pow(C.MOVE_R / r, C.STEER_RESPONSE_EXP);
+
 // ---------------------------------------------------------------------
 //  窓（世界）
 // ---------------------------------------------------------------------
@@ -133,6 +177,106 @@ const paneTop = k => k * STEP_Y;
 const paneOf = y => clamp(Math.floor((y + C.BAR / 2) / STEP_Y), 0, C.PANE_COUNT - 1);
 const glassClip = new Path2D();
 for (let k = 0; k < C.PANE_COUNT; k++) glassClip.rect(0, paneTop(k), W, H);
+
+// ---------------------------------------------------------------------
+//  場面（ガラス1枚に1つ）。座標はそのガラスの中の位置（x: 0〜360、y: 0〜520）
+//   grains: 光る粒 [x, y, 種類]   種類：'gap'（すき間の先）'grime'（汚れの先）'free'（そのほか）
+//   drops:  ほかの雫 [x, y, 半径]（プレイヤーが近づくと、そこに現れて流れ出す）
+//   lumps:  塊（すき間）    grime: 汚れ [中心x, 中心y, 幅, 高さ]
+//   lane:   親友の通り道 [y, x]（何もない所を通る）
+// ---------------------------------------------------------------------
+// すき間：塊2つを横に並べ、間に GAP_PASS_R×2 のすき間をあける。
+// slide は、大きい雫がその塊の上ですべる向き（-1 左、1 右）
+function gapRow(y, gapX, x1, x2, slideL, slideR) {
+  const e = C.GAP_PASS_R + C.LUMP_R;
+  const row = [{ x1, x2: gapX - e, y, slide: slideL }, { x1: gapX + e, x2, y, slide: slideR }];
+  row.gap = { x: gapX, y };
+  return row;
+}
+const SCENES = [
+  { // 1枚目：救われる（試作1のまま）。まっすぐ下に粒が1つ（そのまま取れる）
+    grains: [[180, 385, 'free']],
+    lane: [[300, 180]],
+  },
+  { // 2枚目：すき間を見せる。全員まだ小さいので通れる。親友は左の端を行く
+    lumps: gapRow(300, 180, 100, 260, -1, 1),
+    grains: [[180, 345, 'gap']],
+    lane: [[150, 48], [430, 48]],
+  },
+  { // 3枚目：混ざるのを試す。左右に雫、真ん中に粒
+    drops: [[105, 150, 11], [255, 185, 12]],
+    grains: [[180, 410, 'free']],
+    lane: [[200, 180], [460, 180]],
+  },
+  { // 4枚目：汚れを見せる。小さいと引っかかり、大きいと押し流す。親友は右の端を行く
+    grime: [[180, 290, 130, 36]],
+    grains: [[180, 352, 'grime']],
+    lane: [[170, 312], [440, 312]],
+  },
+  { // 5枚目：すき間を試す。すき間のすぐ上に雫（通るには、先に避ける）
+    lumps: gapRow(330, 240, 70, 300, -1, 1),
+    drops: [[240, 70, 12]],
+    grains: [[240, 375, 'gap']],
+    lane: [[170, 334], [450, 334]],
+  },
+  { // 6枚目：汚れを試す。汚れのすぐ上に雫（先に混ざれば押し流せる）
+    grime: [[220, 315, 120, 34]],
+    drops: [[220, 70, 13]],
+    grains: [[220, 378, 'grime']],
+    lane: [[170, 327], [450, 327]],
+  },
+  { // 7枚目：ひねる。左にすき間、右に汚れ（同じ高さ）。どちらか片方しか取れない
+    lumps: gapRow(320, 90, C.LUMP_R, 150, 1, 1),
+    grime: [[285, 318, 100, 34]],
+    drops: [[285, 80, 12]],
+    grains: [[90, 365, 'gap'], [285, 382, 'grime']],
+    lane: [[150, 190], [450, 190]],
+  },
+  { // 8枚目：休み。離れた粒2つ（小さいと両方取れ、大きいと片方）と雫2つ
+    drops: [[150, 60, 10], [300, 150, 13]],
+    grains: [[95, 170, 'free'], [265, 390, 'free']],
+    lane: [[200, 210], [460, 210]],
+  },
+  { // 9枚目：ひねる。左にすき間、右に汚れ。今度は、すき間のすぐ上に雫（混ざると、すき間を通れなくなる）
+    lumps: gapRow(320, 100, C.LUMP_R, 160, 1, 1),
+    grime: [[285, 318, 90, 34]],
+    drops: [[100, 80, 11]],
+    grains: [[100, 365, 'gap'], [285, 382, 'grime']],
+    lane: [[150, 197], [450, 197]],
+  },
+  { // 10枚目：おわり。なにもない
+    lane: [[200, 180]],
+  },
+];
+
+const LUMPS = [];   // 塊（動かない）
+const GAPS = [];    // すき間の中心
+const GRIME0 = [];  // 汚れの丸（1回ごとに写して使う。押し流すと消える）
+const GRAINS0 = []; // 光る粒
+const SPAWNS0 = []; // ほかの雫が現れる所
+const LANE = [];    // 親友の通り道 [y, x]
+(function buildLevel() {
+  let seed = 7; // 汚れの形は毎回同じにする
+  const rand = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+  SCENES.forEach((s, k) => {
+    const top = paneTop(k);
+    for (const L of s.lumps || []) LUMPS.push({ x1: L.x1, x2: L.x2, y: top + L.y, slide: L.slide });
+    if (s.lumps && s.lumps.gap) GAPS.push({ x: s.lumps.gap.x, y: top + s.lumps.gap.y });
+    for (const [cx, cy, w, h] of s.grime || []) {
+      for (let y = cy - h / 2; y <= cy + h / 2 + 0.1; y += 18) {
+        for (let x = cx - w / 2; x <= cx + w / 2 + 0.1; x += 18) {
+          GRIME0.push({
+            x: x + (rand() - 0.5) * 6, y: top + y + (rand() - 0.5) * 6, r: 9 + rand() * 5,
+            sp: [[(rand() - 0.5) * 9, (rand() - 0.5) * 9, 1 + rand() * 1.5], [(rand() - 0.5) * 9, (rand() - 0.5) * 9, 0.8 + rand()]],
+          });
+        }
+      }
+    }
+    for (const [x, y, kind] of s.grains || []) GRAINS0.push({ x, y: top + y, kind });
+    for (const [x, y, r] of s.drops || []) SPAWNS0.push({ x, y: top + y, r });
+    for (const [y, x] of s.lane || []) LANE.push([top + y, x]);
+  });
+})();
 
 // ---------------------------------------------------------------------
 //  画面
@@ -164,19 +308,24 @@ let testDir = null;      // 確かめ用：入力を外から与える
 let simulating = false;  // 確かめ用：早送り中は音を鳴らさない
 let paused = false;      // 確かめ用：時間を止める
 const cam = { mode: C.CAMERA_DEFAULT, y: 0, s1: 0 };
+let pull = false;        // 近くの雫が寄ってくるか（M キー）
 {
-  const q = (new URLSearchParams(location.search).get('camera') || '').toLowerCase();
+  const params = new URLSearchParams(location.search);
+  const q = (params.get('camera') || '').toLowerCase();
   if (q === 'a' || q === 'b') cam.mode = q;
+  const pq = (params.get('pull') || '').toLowerCase();
+  if (pq === 'on') pull = true;
+  if (pq === 'off') pull = false;
 }
 
 function makeDrop(x, y, r) {
   return {
-    x, y, vx: 0, vy: 0, r,
+    x, y, vx: 0, vy: 0, r, rT: r, // rT：混ざった後に向かう大きさ
     ang: 0, angT: 0,        // 伸びる向き
     el: 0, elv: 0, elT: 0,  // 伸び（+）・つぶれ（-）と、その揺れ
     lean: 0,                // 動けない時、伸びた方へ寄って見える分
     jx: 0, jv: 0,           // 止まった後、押した時のゆれ
-    resting: false, settle: null, state: '',
+    resting: false, settle: null, support: null, slideDir: 0, state: '',
     trail: [], beads: [], beadAcc: 0,
   };
 }
@@ -184,12 +333,17 @@ function makeDrop(x, y, r) {
 function newStats() {
   return {
     firstInput: null, friendAppear: null, contact: null, release: null,
-    stuckMaxShift: 0,   // 動けない間に、雫の中心がずれた最大の幅（震えを除く）
-    stuckMaxReach: 0,   // 動けない間に、伸びた先が届いた最大の幅
+    stuckMaxShift: 0,   // 最初に動けない間に、雫の中心がずれた最大の幅（震えを除く）
+    stuckMaxReach: 0,   // 最初に動けない間に、伸びた先が届いた最大の幅
     moveMaxVx: 0,
     paneTimes: [],
     friendSill: null, playerSill: null, bothStopped: null, fadeDone: null,
     friendWaitTime: 0, gapMin: null, gapMax: null,
+    merges: 0,                              // 混ざった回数（助けの雫も入れる）
+    finalR: null,                           // 最後の大きさ（半径）
+    grains: { gap: 0, grime: 0, free: 0 },  // 触れた光る粒の数（種類ごと）
+    grimeStuckCount: 0, grimeStuckTime: 0,  // 汚れに引っかかった回数と、合計の秒数
+    grimePushed: 0,                         // 押し流した汚れの丸の数
   };
 }
 
@@ -197,14 +351,22 @@ function newGame() {
   const sx = W * C.START_X, sy = H * C.START_Y;
   G = {
     t: 0, phase: 'stuck', prevDir: 0, lastDir: 1, firstInput: -1,
-    startX: sx, anchorX: sx, anchorY: sy, offX: 0, offVX: 0, strain: 0,
+    hold: { startX: sx, anchorX: sx, anchorY: sy, offX: 0, offVX: 0, strain: 0 }, // 最初の「動けない」
     player: makeDrop(sx, sy, C.STUCK_R),
     friend: makeDrop(-999, -999, C.FRIEND_R),
     side: Math.random() < 0.5 ? -1 : 1,
-    ph1: Math.random() * TAU, ph2: Math.random() * TAU,
+    ph1: Math.random() * TAU,
     transferT: 0, contactX: 0, contactY: 0, glowT: -1,
     releaseT: -1, releaseY: 0, leadX: 0, leadY: 0,
+    moveT0: 0, moveRamp: C.FALL_ACCEL_TIME,
     playerPane: 0, endT: -1,
+    others: [],
+    spawns: SPAWNS0.map(s => Object.assign({ done: false }, s)),
+    grains: GRAINS0.map(g => Object.assign({ lit: false, litT: 0 }, g)),
+    grime: GRIME0.map(b => Object.assign({ state: 'stay', t: 0, vx: 0, vy: 0 }, b)),
+    gstuck: null,       // 汚れで動けない時の状態
+    pushing: false, squishT: -9,
+    grainCount: 0, ripples: [],
     stats: newStats(),
   };
   G.friend.state = 'hidden';
@@ -241,6 +403,7 @@ addEventListener('keydown', e => {
     case 'KeyR': if (!e.repeat) newGame(); break;
     case 'KeyC': if (!e.repeat) toggleCamera(); break;
     case 'KeyS': if (!e.repeat) toggleSound(); break;
+    case 'KeyM': if (!e.repeat) togglePull(); break;
   }
 });
 addEventListener('keyup', e => {
@@ -273,12 +436,16 @@ function toggleSound() {
   Sound.setOn(!Sound.on);
   showIcon(Sound.on ? 'soundOn' : 'soundOff');
 }
+function togglePull() {
+  pull = !pull;
+  showIcon(pull ? 'pullOn' : 'pullOff');
+}
 
 // ---------------------------------------------------------------------
 //  音（その場で作る効果音だけ）
 // ---------------------------------------------------------------------
 const Sound = {
-  ac: null, master: null, slideGain: null, on: true,
+  ac: null, master: null, slideGain: null, noise: null, on: true,
   init() {
     if (this.ac) { if (this.ac.state === 'suspended' && !document.hidden) this.ac.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -297,6 +464,11 @@ const Sound = {
     this.slideGain = ac.createGain(); this.slideGain.gain.value = 0;
     src.connect(bp); bp.connect(this.slideGain); this.slideGain.connect(this.master);
     src.start();
+    // 汚れを押し流す音に使う、短いざらざら
+    const nlen = Math.floor(ac.sampleRate * 0.3);
+    this.noise = ac.createBuffer(1, nlen, ac.sampleRate);
+    const nd = this.noise.getChannelData(0);
+    for (let i = 0; i < nlen; i++) nd[i] = Math.random() * 2 - 1;
   },
   setOn(v) {
     this.on = v;
@@ -324,6 +496,35 @@ const Sound = {
   release() { this.tone(700, 1500, 0.09, 0.06); },
   bar() { this.tone(520, 380, 0.09, 0.035); },
   land(isPlayer) { this.tone(380, 240, 0.3, isPlayer ? 0.08 : 0.05); },
+  // 光る粒：取るたびに音階を1つ上がる（取った順に小さなメロディになる）
+  grain(i) {
+    const steps = [0, 2, 4, 7, 9];
+    const s = Math.min(24, steps[i % 5] + 12 * Math.floor(i / 5));
+    const f = 523.25 * Math.pow(2, s / 12);
+    this.tone(f, f, 1.1, 0.06, 0, 0.004);
+    this.tone(f * 2, f * 2, 0.5, 0.018, 0, 0.004);
+  },
+  // 混ざる：ぽちゃん。大きくなるほど低い
+  merge(r) {
+    const f0 = 560 * C.MOVE_R / r;
+    this.tone(f0, f0 * 0.55, 0.24, 0.13);
+    this.tone(f0 * 2.2, f0 * 1.3, 0.09, 0.04);
+  },
+  // 汚れに引っかかる：ぺたっ
+  stick() { this.tone(200, 120, 0.2, 0.09); this.tone(90, 70, 0.25, 0.06); },
+  // 汚れを押し流す：ざっ
+  squish() {
+    if (!this.ac || !this.noise || simulating) return;
+    const ac = this.ac, t = ac.currentTime;
+    const src = ac.createBufferSource(); src.buffer = this.noise;
+    const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900;
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.06, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+    src.connect(lp); lp.connect(g); g.connect(this.master);
+    src.start(t); src.stop(t + 0.2);
+  },
   slide(level) {
     if (!this.slideGain || simulating) return;
     this.slideGain.gain.setTargetAtTime(level * C.SLIDE_VOLUME, this.ac.currentTime, 0.12);
@@ -369,60 +570,91 @@ function update(dt) {
   else if (f.state === 'lead') updateLead(dt);
   else if (f.state === 'rest') updateRest(f, dt, 0, false);
 
+  if (G.phase === 'move' || G.phase === 'end') {
+    spawnOthers();
+    updateOthers(dt);
+    updateGrime(dt);
+    // 混ざった後の大きさへ、なめらかに近づく
+    p.r += (p.rT - p.r) * (1 - Math.exp(-14 * dt));
+  }
+
   updateShape(p, dt);
   updateShape(f, dt);
   if (G.glowT >= 0) G.glowT += dt;
+  for (const r of G.ripples) r.t += dt;
+  G.ripples = G.ripples.filter(r => r.t < 0.6);
 
-  if (G.phase === 'move' && p.resting && f.resting) { G.phase = 'end'; G.endT = G.t; st.bothStopped = G.t; }
+  if (G.phase === 'move' && p.resting && f.resting) { G.phase = 'end'; G.endT = G.t; st.bothStopped = G.t; st.finalR = p.rT; }
   if (G.phase === 'end' && st.fadeDone === null && G.t - G.endT - C.END_WAIT >= C.FADE_TIME) st.fadeDone = G.t;
 }
 
-// 動けない時：見えないばねで、元の位置に引き戻される
-function updateStuck(dt, dir, pressed) {
-  const p = G.player, st = G.stats;
-  if (pressed) { G.offVX += dir * C.STUCK_KICK; Sound.tick(dir); }
-  if (dir) G.anchorX = clamp(G.anchorX + dir * C.STUCK_CREEP * dt, G.startX - C.STUCK_CREEP_MAX, G.startX + C.STUCK_CREEP_MAX);
-  const ax = dir * C.STUCK_PUSH - C.STICK_SPRING * G.offX - C.STICK_DAMP * G.offVX;
-  G.offVX += ax * dt;
-  G.offX += G.offVX * dt;
-  G.strain = approach(G.strain, dir ? 1 : 0, dt * (dir ? 10 : 3));
+// 動けない時の体：見えないばねで、元の位置に引き戻される（最初と、汚れに引っかかった時に使う）
+function updateHold(dt, dir, pressed, h) {
+  const p = G.player;
+  if (pressed) { h.offVX += dir * C.STUCK_KICK; Sound.tick(dir); }
+  if (dir) h.anchorX = clamp(h.anchorX + dir * C.STUCK_CREEP * dt, h.startX - C.STUCK_CREEP_MAX, h.startX + C.STUCK_CREEP_MAX);
+  const ax = dir * C.STUCK_PUSH - C.STICK_SPRING * h.offX - C.STICK_DAMP * h.offVX;
+  h.offVX += ax * dt;
+  h.offX += h.offVX * dt;
+  h.strain = approach(h.strain, dir ? 1 : 0, dt * (dir ? 10 : 3));
   const tw = G.t * TAU * C.TREMBLE_HZ;
-  p.x = G.anchorX + G.offX + Math.sin(tw) * C.TREMBLE * G.strain;
-  p.y = G.anchorY + Math.sin(tw * 1.37 + 1) * C.TREMBLE * 0.5 * G.strain;
-  if (G.phase === 'stuck') {
-    p.ang = p.angT = 0; // 横向きに伸びる
-    const pulse = 0.85 + 0.15 * Math.sin(G.t * 6.5) + 0.05 * Math.sin(tw * 0.7);
-    const sag = -0.05 - 0.025 * Math.sin(G.t * 1.7); // 何もしない時は、少し縦に垂れて息をしているように
-    p.elT = G.strain * C.STRETCH_MAX * pulse + (1 - G.strain) * sag;
-    p.lean = G.lastDir * Math.max(0, p.el) * p.r * 0.9; // 後ろは張り付いたまま、前だけ伸びる
-  } else {
-    p.lean *= Math.exp(-8 * dt);
-  }
-  const shift = Math.abs(G.anchorX + G.offX - G.startX);
+  p.x = h.anchorX + h.offX + Math.sin(tw) * C.TREMBLE * h.strain;
+  p.y = h.anchorY + Math.sin(tw * 1.37 + 1) * C.TREMBLE * 0.5 * h.strain;
+  return tw;
+}
+// 動けない時の形：押した方へ伸びる。何もしない時は、少し縦に垂れて息をしているように
+function stuckShape(p, h, tw) {
+  p.ang = p.angT = 0; // 横向きに伸びる
+  const pulse = 0.85 + 0.15 * Math.sin(G.t * 6.5) + 0.05 * Math.sin(tw * 0.7);
+  const sag = -0.05 - 0.025 * Math.sin(G.t * 1.7);
+  p.elT = h.strain * C.STRETCH_MAX * pulse + (1 - h.strain) * sag;
+  p.lean = G.lastDir * Math.max(0, p.el) * p.r * 0.9; // 後ろは張り付いたまま、前だけ伸びる
+}
+
+// 最初の「動けない」
+function updateStuck(dt, dir, pressed) {
+  const p = G.player, h = G.hold, st = G.stats;
+  const tw = updateHold(dt, dir, pressed, h);
+  if (G.phase === 'stuck') stuckShape(p, h, tw);
+  else p.lean *= Math.exp(-8 * dt);
+  const shift = Math.abs(h.anchorX + h.offX - h.startX);
   st.stuckMaxShift = Math.max(st.stuckMaxShift, shift);
   st.stuckMaxReach = Math.max(st.stuckMaxReach, shift + Math.abs(p.lean) + Math.max(0, p.el) * p.r);
 }
 
-// 動ける時：重力で下へ。左右で寄せる
+// 動ける時：重力で下へ。左右で寄せる。大きいほど速く、曲がりにくい
 function updateFree(dt, dir, pressed) {
   const p = G.player, f = G.friend, st = G.stats;
   if (p.resting) { updateRest(p, dt, dir, pressed); return; }
   if (p.settle) { updateSettle(p, dt); return; }
+  if (G.gstuck) { updateGrimeStuck(dt, dir, pressed); return; }
   p.lean *= Math.exp(-8 * dt);
-  const ramp = smooth(clamp((G.t - G.releaseT) / C.FALL_ACCEL_TIME, 0, 1));
-  p.vx += (dir * C.STEER_SPEED - p.vx) * (1 - Math.exp(-C.STEER_RESPONSE * dt));
-  const side = Math.abs(p.vx) / C.STEER_SPEED;
-  const tvy = C.FALL_SPEED * ramp * (1 - C.STEER_SLOW * side * side);
+  const ramp = smooth(clamp((G.t - G.moveT0) / G.moveRamp, 0, 1));
+  const steer = sizeSteer(p.r);
+  let tvx = dir * steer, resp = sizeResponse(p.r);
+  // 塊の上に乗っている時は、横へすべる（押した方へ。押さなければ塊ごとに決めた向きへ）
+  if (p.support) { tvx = (dir || p.support.dir) * Math.max(steer, C.SLIDE_SPEED); resp = Math.max(resp, 4); }
+  p.vx += (tvx - p.vx) * (1 - Math.exp(-resp * dt));
+  const side = Math.min(1, Math.abs(p.vx) / steer);
+  // 塊の上に乗っている間は下へ押さない（横へすべって、塊を乗り越えられるように）
+  let tvy = p.support ? 0 : sizeFall(p.r) * ramp * (1 - C.STEER_SLOW * side * side);
+  if (G.pushing) tvy *= C.GRIME_PUSH_SLOW;
   p.vy += (tvy - p.vy) * (1 - Math.exp(-8 * dt));
   p.x += p.vx * dt;
   p.y += p.vy * dt;
   let vxIntent = p.vx;
   const minX = p.r + 1, maxX = W - p.r - 1;
   if (p.x < minX || p.x > maxX) {
+    if (p.slideDir && Math.sign(p.slideDir) === Math.sign(p.x - W / 2)) p.slideDir = -p.slideDir; // 枠に当たったら、すべる向きを変える
     p.x = clamp(p.x, minX, maxX);
     p.vx = 0;
-    if (dir) vxIntent = dir * C.STEER_SPEED * 0.6; // 枠に押し付けている時も、少し傾いて反応する
+    if (dir) vxIntent = dir * steer * 0.6; // 枠に押し付けている時も、少し傾いて反応する
   }
+  collideLumps(p);
+  gapAssist(p, dir, dt);
+  touchGrime(p);
+  if (G.gstuck) return;
+  touchGrains(p);
   // 先に着いて止まっている親友に触れたら、その横へすべり降りて並ぶ
   if (f.resting && Math.hypot(p.x - f.x, p.y - f.y) < p.r + f.r + 2) { startSettle(p, f); addTrail(p); return; }
   separate(p, f);
@@ -437,6 +669,253 @@ function updateFree(dt, dir, pressed) {
   if (!p.resting) freeShape(p, vxIntent);
   addTrail(p);
   st.moveMaxVx = Math.max(st.moveMaxVx, Math.abs(p.vx));
+}
+
+// 塊：雫は通り抜けられない。上に乗ったら横へすべる
+//  ・まっすぐな上の面に乗った → その塊で決めた向きへ
+//  ・丸い端に乗った → 転がり落ちる向きへ（小さい雫は、すき間の近くならすき間へ入る）
+//  ・2つの塊の間にはさまった（大きくて、すき間に入れない）→ どちらかの塊の上へ
+//  ・一度すべり始めたら、塊から離れるまで同じ向き（行ったり来たりしない）
+function collideLumps(d) {
+  d.support = null;
+  const big = d.r >= C.GAP_PASS_R;
+  let hits = 0, sdir = 0, sx = 0, flatDir = 0, top = false;
+  for (const L of LUMPS) {
+    if (d.y + d.r < L.y - C.LUMP_R - 2 || d.y - d.r > L.y + C.LUMP_R + 2) continue;
+    const cx = clamp(d.x, L.x1, L.x2), cy = L.y;
+    let nx = d.x - cx, ny = d.y - cy;
+    const dist = Math.hypot(nx, ny), min = d.r + C.LUMP_R;
+    if (dist >= min + 1.5) continue; // 少しの余裕：上に乗って止まっている間も「乗っている」とみなす
+    if (dist < 1e-6) { nx = 0; ny = -1; } else { nx /= dist; ny /= dist; }
+    if (dist < min) { d.x += nx * (min - dist); d.y += ny * (min - dist); }
+    const vn = d.vx * nx + d.vy * ny;
+    if (vn < 0) { d.vx -= vn * nx; d.vy -= vn * ny; }
+    if (ny >= -0.2) continue; // 横や下から当たっただけ
+    hits++;
+    sdir += L.slide * clamp(min - dist + 1.5, 0.01, 10); // 深く当たっている塊の向きを重く見る
+    sx += cx;
+    if (ny < -0.8) {
+      const onEnd = d.x <= L.x1 || d.x >= L.x2;
+      if (!onEnd) { top = true; flatDir = L.slide; }
+      else if (big) { top = true; flatDir = Math.sign(nx) || L.slide; }
+      // 小さい雫が丸い端に乗った時は、形にまかせて転がす（すき間の近くなら、すき間へ）
+    }
+  }
+  if (!hits) { d.slideDir = 0; return; }
+  let dir = d.slideDir;
+  if (!dir) {
+    if (hits >= 2) {
+      dir = Math.abs(sdir) > 0.05 ? Math.sign(sdir) : 0;
+      if (!dir) dir = Math.sign(d.x - sx / hits) || G.lastDir;
+    } else if (top) dir = flatDir;
+    else return; // 肩に当たっただけなら、形にまかせる
+  }
+  d.slideDir = dir;
+  d.support = { dir };
+}
+
+// すき間の手伝い：小さい雫が、すき間のだいたい上に来たら、すき間へ吸い込まれる
+// （すき間を通るのを腕前の勝負にしないため。自分から離れようとしている時は手伝わない）
+function gapAssist(d, dir, dt) {
+  if (d.r >= C.GAP_PASS_R) return;
+  for (const g of GAPS) {
+    const dy = g.y - d.y;
+    if (dy < -C.LUMP_R || dy > d.r + C.LUMP_R + 24) continue;
+    const dx = g.x - d.x;
+    if (Math.abs(dx) > C.GAP_CAPTURE) continue;
+    if (dir && Math.abs(dx) > 1 && Math.sign(dir) !== Math.sign(dx)) continue;
+    d.x += dx * (1 - Math.exp(-12 * dt));
+    d.vx *= Math.exp(-10 * dt);
+    d.slideDir = 0; d.support = null;
+  }
+}
+
+// 汚れ：小さいと引っかかる。大きいと押し流す
+function touchGrime(p) {
+  let hit = false, pushing = false;
+  for (const b of G.grime) {
+    if (b.state === 'gone') continue;
+    if (Math.abs(b.y - p.y) > 40 || Math.abs(b.x - p.x) > 40) continue;
+    const d = Math.hypot(b.x - p.x, b.y - p.y);
+    if (b.state === 'pushed') { if (b.t < 0.3 && d < p.r + b.r) pushing = true; continue; }
+    if (d >= p.r + b.r * 0.75) continue;
+    if (p.rT >= C.GRIME_PUSH_R) { pushGrime(b, p); pushing = true; }
+    else { hit = true; break; }
+  }
+  G.pushing = pushing;
+  if (hit) startGrimeStuck();
+}
+function pushGrime(b, p) {
+  b.state = 'pushed'; b.t = 0;
+  b.vx = p.vx * 0.5 + (b.x - p.x) * 1.5;
+  b.vy = p.vy * 0.7;
+  G.stats.grimePushed++;
+  if (G.t - G.squishT > 0.09) { Sound.squish(); G.squishT = G.t; }
+}
+function updateGrime(dt) {
+  for (const b of G.grime) {
+    if (b.state !== 'pushed') continue;
+    b.t += dt;
+    b.x += b.vx * dt; b.y += b.vy * dt;
+    b.vx *= Math.exp(-4 * dt); b.vy *= Math.exp(-4 * dt);
+    if (b.t > 0.6) b.state = 'gone';
+  }
+}
+function startGrimeStuck() {
+  const p = G.player;
+  G.gstuck = { t0: G.t, startX: p.x, anchorX: p.x, anchorY: p.y, offX: 0, offVX: 0, strain: 0, rescued: false };
+  p.vx = 0; p.vy = 0; p.support = null;
+  p.el = -p.el; p.elv = -p.elv; p.ang = p.angT = 0; // 縦の伸びを、同じ形の横向きに置き換える
+  p.elv += 3; // ぺたっと横に広がる
+  G.stats.grimeStuckCount++;
+  Sound.stick();
+}
+// 汚れで動けない：最初と同じく、押すと伸びて震えるが進まない。少しあとに必ず助けの雫が来る
+function updateGrimeStuck(dt, dir, pressed) {
+  const p = G.player, h = G.gstuck;
+  const tw = updateHold(dt, dir, pressed, h);
+  stuckShape(p, h, tw);
+  if (!h.rescued && G.t - h.t0 >= C.GRIME_RESCUE_DELAY) { h.rescued = true; spawnRescue(); }
+  // 混ざって大きくなったら、汚れを押し流して抜ける
+  if (p.rT >= C.GRIME_PUSH_R && p.r >= C.GRIME_PUSH_R - 0.3) freeFromGrime();
+}
+function freeFromGrime() {
+  const p = G.player, h = G.gstuck;
+  G.gstuck = null;
+  G.stats.grimeStuckTime += G.t - h.t0;
+  p.x = h.anchorX + h.offX; p.y = h.anchorY;
+  p.vx = 0; p.vy = 0;
+  p.el = -p.el; p.elv = -p.elv; p.ang = p.angT = Math.PI / 2;
+  p.elv += 3.5; // ぐっと縦に伸びて、動き出す
+  G.moveT0 = G.t; G.moveRamp = C.GRIME_FREE_ACCEL;
+  Sound.release();
+}
+
+// 光る粒：触れると光って音が鳴り、光ったまま残る
+function touchGrains(p) {
+  for (const g of G.grains) {
+    if (g.lit || Math.abs(g.y - p.y) > p.r + 8) continue;
+    if (Math.hypot(g.x - p.x, g.y - p.y) < p.r + C.GRAIN_R + 1) {
+      g.lit = true; g.litT = G.t;
+      G.stats.grains[g.kind]++;
+      Sound.grain(G.grainCount++);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------
+//  ほかの雫
+// ---------------------------------------------------------------------
+function makeOther(x, y, r, rescue) {
+  const o = makeDrop(x, y, r);
+  o.ang = o.angT = Math.PI / 2;
+  o.form = 0; o.state = 'flow'; o.rescue = rescue;
+  return o;
+}
+function spawnOthers() {
+  const p = G.player;
+  for (const s of G.spawns) {
+    if (s.done || p.y < s.y - C.OTHER_SPAWN_AHEAD) continue;
+    s.done = true;
+    G.others.push(makeOther(s.x, s.y, s.r, false));
+  }
+}
+// 助けの雫：混ざれば必ず汚れを押し流せる大きさにする
+function spawnRescue() {
+  const p = G.player;
+  const r = Math.max(10, Math.sqrt(Math.max(0, (C.GRIME_PUSH_R + 0.6) ** 2 - p.rT * p.rT)));
+  G.others.push(makeOther(p.x, p.y - C.GRIME_RESCUE_DIST, r, true));
+}
+function updateOthers(dt) {
+  const p = G.player, f = G.friend;
+  const canMerge = G.phase === 'move' && !p.resting && !p.settle;
+  // 寄ってくるのは、いちばん近い1つだけ（2つにはさまれると、よけられなくなるため）
+  let pulled = null;
+  if (pull && G.phase === 'move') {
+    let best = 1e9;
+    for (const o of G.others) {
+      if (o.state !== 'flow' || o.rescue || o.resting || o.form < 1) continue;
+      const dx = p.x - o.x, dy = o.y - p.y;
+      if (Math.abs(dx) >= C.PULL_RANGE_X || dy <= -(o.r + p.r) || dy >= C.PULL_RANGE_Y) continue;
+      const d = Math.hypot(dx, dy);
+      if (d < best) { best = d; pulled = o; }
+    }
+  }
+  for (const o of G.others) {
+    if (o.state === 'merging') { updateMerge(o, dt); continue; }
+    if (o.state !== 'flow') continue;
+    if (o.form < 1) o.form = Math.min(1, o.form + dt / C.OTHER_FORM_TIME);
+    if (o.form >= 1 && !o.resting) {
+      const tvy = o.support ? 0 : o.rescue ? C.GRIME_RESCUE_SPEED : C.OTHER_SPEED + C.OTHER_SPEED_PER_R * (o.r - 10);
+      o.vy += (tvy - o.vy) * (1 - Math.exp(-3 * dt));
+      if (o.rescue) o.vx = clamp((p.x - o.x) * 3, -80, 80);                 // 助けの雫は、まっすぐプレイヤーへ
+      else if (o.support) o.vx += (o.support.dir * C.SLIDE_SPEED * 0.7 - o.vx) * (1 - Math.exp(-4 * dt));
+      else if (o === pulled) pullOther(o, p, dt);
+      else o.vx *= Math.exp(-2 * dt);                                       // まっすぐ流れる（寄っていた勢いは、ゆっくり消える）
+      o.x += o.vx * dt;
+      o.y += o.vy * dt;
+      if (o.x < o.r + 1 || o.x > W - o.r - 1) {
+        if (o.slideDir && Math.sign(o.slideDir) === Math.sign(o.x - W / 2)) o.slideDir = -o.slideDir;
+        o.x = clamp(o.x, o.r + 1, W - o.r - 1);
+      }
+      collideLumps(o);
+      gapAssist(o, 0, dt);
+      pushAway(o, f);
+      if (o.y + o.r >= SILL_Y) {
+        o.y = SILL_Y - o.r; o.resting = true; o.vx = o.vy = 0;
+        o.ang = o.angT = Math.PI / 2; o.elv = -4; o.elT = -0.08;
+      } else freeShape(o, o.vx);
+    }
+    updateShape(o, dt);
+    if (canMerge && Math.hypot(o.x - p.x, o.y - p.y) < o.r * easeOut(o.form) + p.r) beginMerge(o);
+  }
+  G.others = G.others.filter(o => o.state !== 'gone' && o.y > p.y - 900);
+}
+// 寄ってくる（M）：近くの雫が、プレイヤーの方へゆっくり横に寄る
+function pullOther(o, p, dt) {
+  const dx = p.x - o.x;
+  o.vx += Math.sign(dx) * C.PULL_ACCEL * (1 - Math.abs(dx) / C.PULL_RANGE_X) * dt;
+  o.vx = clamp(o.vx, -C.PULL_MAX, C.PULL_MAX);
+}
+// 親友とほかの雫は混ざらない。ほかの雫の方をよける
+function pushAway(o, f) {
+  if (f.state !== 'lead' && f.state !== 'rest') return;
+  const dx = o.x - f.x, dy = o.y - f.y, d = Math.hypot(dx, dy), min = o.r + f.r + 0.5;
+  if (d >= min || d < 1e-6) return;
+  o.x += dx / d * (min - d); o.y += dy / d * (min - d);
+}
+// 混ざる：触れると、間がつながって一つになる
+function beginMerge(o) {
+  const p = G.player;
+  o.state = 'merging'; o.mt = 0; o.mx0 = o.x; o.my0 = o.y; o.mr0 = o.r * easeOut(o.form);
+  p.rT = Math.sqrt(p.rT * p.rT + o.mr0 * o.mr0); // 水の量（半径の2乗の合計）を保つ
+  o.shift = o.mr0 * o.mr0 / (p.rT * p.rT);        // プレイヤーが相手の方へ寄る割合
+  p.elv -= 2.5;                                    // ぷるん
+  G.ripples.push({ x: (p.x + o.x) / 2, y: (p.y + o.y) / 2, t: 0, r0: p.r });
+  G.stats.merges++;
+  Sound.merge(p.rT);
+}
+function updateMerge(o, dt) {
+  const p = G.player;
+  const k0 = Math.min(1, o.mt / C.MERGE_TIME);
+  o.mt += dt;
+  const k = Math.min(1, o.mt / C.MERGE_TIME);
+  if (!G.gstuck) p.x += (o.mx0 - p.x) * o.shift * (k - k0);
+  o.x = lerp(o.mx0, p.x, k * k);
+  o.y = lerp(o.my0, p.y, k * k);
+  o.r = o.mr0 * (1 - smooth(k));
+  if (k >= 1) o.state = 'gone';
+}
+
+// 止まった後：押すと少し揺れる（反応は必ず返す）
+function updateRest(d, dt, dir, pressed) {
+  if (pressed) { d.jv += dir * C.STUCK_KICK * 0.7; Sound.tick(dir); }
+  const ax = dir * C.STUCK_PUSH * 0.6 - C.STICK_SPRING * d.jx - C.STICK_DAMP * d.jv;
+  d.jv += ax * dt;
+  d.jx += d.jv * dt;
+  d.angT = Math.PI / 2;
+  d.elT = -0.08 + (dir ? 0.04 * Math.sin(G.t * TAU * C.TREMBLE_HZ) : 0);
+  d.lean = 0;
 }
 
 function startSettle(p, f) {
@@ -455,17 +934,6 @@ function updateSettle(p, dt) {
   freeShape(p, p.vx);
   addTrail(p);
   if (s.t >= 1) { p.settle = null; land(p, true); }
-}
-
-// 止まった後：押すと少し揺れる（反応は必ず返す）
-function updateRest(d, dt, dir, pressed) {
-  if (pressed) { d.jv += dir * C.STUCK_KICK * 0.7; Sound.tick(dir); }
-  const ax = dir * C.STUCK_PUSH * 0.6 - C.STICK_SPRING * d.jx - C.STICK_DAMP * d.jv;
-  d.jv += ax * dt;
-  d.jx += d.jv * dt;
-  d.angT = Math.PI / 2;
-  d.elT = -0.08 + (dir ? 0.04 * Math.sin(G.t * TAU * C.TREMBLE_HZ) : 0);
-  d.lean = 0;
 }
 
 function land(d, isPlayer) {
@@ -493,17 +961,17 @@ function spawnFriend() {
 
 // 親友が、プレイヤーの斜め上へ近づいてくる
 function updateApproach(dt) {
-  const f = G.friend, p = G.player;
+  const f = G.friend, p = G.player, h = G.hold;
   f.vy = Math.min(C.FRIEND_APPROACH_SPEED, f.vy + C.FRIEND_APPROACH_SPEED * 2 * dt);
   const ox = f.x;
   f.y += f.vy * dt;
-  const baseX = G.anchorX + G.offX;
+  const baseX = h.anchorX + h.offX;
   const tx = baseX + G.side * (p.r + f.r) * 0.55;
   f.x += (tx - f.x) * (1 - Math.exp(-2.2 * dt));
   f.vx = (f.x - ox) / dt;
   freeShape(f, f.vx);
   addTrail(f);
-  if (Math.hypot(f.x - baseX, f.y - G.anchorY) <= p.r + f.r) beginTransfer();
+  if (Math.hypot(f.x - baseX, f.y - h.anchorY) <= p.r + f.r) beginTransfer();
 }
 
 function beginTransfer() {
@@ -525,16 +993,16 @@ function beginTransfer() {
 
 // 水が移る：プレイヤーは大きく、親友は少し小さく。親友は横をすべって下へ
 function updateTransfer(dt) {
-  const f = G.friend, p = G.player;
+  const f = G.friend, p = G.player, h = G.hold;
   G.transferT += dt;
   const k = clamp(G.transferT / C.TRANSFER_TIME, 0, 1);
   const g = easeOut(k), e = smooth(k);
   p.r = lerp(C.STUCK_R, C.MOVE_R, g);
   f.r = lerp(C.FRIEND_R, C.FRIEND_R_AFTER, g);
-  const baseX = G.anchorX + G.offX;
+  const baseX = h.anchorX + h.offX;
   const ox = f.x, oy = f.y;
   f.x = lerp(G.contactX, baseX + G.side * (p.r + f.r + 1), e);
-  f.y = lerp(G.contactY, G.anchorY + (p.r + f.r) * 0.1, e);
+  f.y = lerp(G.contactY, h.anchorY + (p.r + f.r) * 0.1, e);
   f.vx = (f.x - ox) / dt; f.vy = (f.y - oy) / dt;
   f.angT = Math.PI / 2; f.elT = -0.08;
   addTrail(f);
@@ -542,11 +1010,12 @@ function updateTransfer(dt) {
 }
 
 function release() {
-  const p = G.player, f = G.friend;
+  const p = G.player, f = G.friend, h = G.hold;
   G.phase = 'move';
   G.releaseT = G.t;
-  p.r = C.MOVE_R; f.r = C.FRIEND_R_AFTER;
-  p.x = G.anchorX + G.offX; p.y = G.anchorY;
+  G.moveT0 = G.t; G.moveRamp = C.FALL_ACCEL_TIME;
+  p.r = p.rT = C.MOVE_R; f.r = f.rT = C.FRIEND_R_AFTER;
+  p.x = h.anchorX + h.offX; p.y = h.anchorY;
   p.vx = 0; p.vy = 0;
   p.elT = 0; p.elv += 4.5; // ぐっと縦に伸びて、動き出す
   f.state = 'lead';
@@ -557,13 +1026,18 @@ function release() {
   Sound.release();
 }
 
-// 親友の進む道（縦の位置で決まる、ゆるい左右のゆれ）
+// 親友の進む道：場面ごとの「何もない通り道」をなめらかにつなぐ
 function friendPathX(y) {
-  const x = W / 2
-    + C.FRIEND_SWAY * Math.sin(TAU * y / C.FRIEND_SWAY_LEN + G.ph1)
-    + C.FRIEND_DRIFT * Math.sin(TAU * y / C.FRIEND_DRIFT_LEN + G.ph2);
-  const m = C.FRIEND_R + 16;
-  return clamp(x, m, W - m);
+  let x;
+  if (y <= LANE[0][0]) x = LANE[0][1];
+  else if (y >= LANE[LANE.length - 1][0]) x = LANE[LANE.length - 1][1];
+  else {
+    let i = 0;
+    while (LANE[i + 1][0] < y) i++;
+    const [y0, x0] = LANE[i], [y1, x1] = LANE[i + 1];
+    x = lerp(x0, x1, smooth((y - y0) / (y1 - y0)));
+  }
+  return x + C.FRIEND_SWAY * Math.sin(TAU * y / C.FRIEND_SWAY_LEN + G.ph1);
 }
 
 // 親友：少し先を行く。離れると遅く、離れすぎると待つ。近づくと少し速く
@@ -573,7 +1047,7 @@ function updateLead(dt) {
   let mul;
   if (gap > C.FRIEND_WAIT_GAP) mul = 0.03;
   else mul = clamp(1 + (C.FRIEND_GAP - gap) / C.FRIEND_GAP * 0.8, 0.15, C.FRIEND_MAX_SPEED);
-  f.vy += (C.FALL_SPEED * mul - f.vy) * (1 - Math.exp(-2.2 * dt));
+  f.vy += (sizeFall(p.r) * mul - f.vy) * (1 - Math.exp(-2.2 * dt));
   f.y += f.vy * dt;
   const ox = f.x;
   const b = smooth(clamp((f.y - G.leadY) / 220, 0, 1));
@@ -589,7 +1063,7 @@ function updateLead(dt) {
   }
 }
 
-// 二つの雫は重ならない（合体は作らない）。そっと押し分ける
+// プレイヤーと親友は重ならない（合体は作らない）。そっと押し分ける
 function separate(p, f) {
   if (f.state !== 'lead' && f.state !== 'rest') return;
   const dx = p.x - f.x, dy = p.y - f.y;
@@ -705,12 +1179,24 @@ function draw() {
   }
   ctx.fillStyle = COL.frame; ctx.fillRect(-C.FRAME, SILL_Y, W + C.FRAME * 2, C.SILL);
   ctx.fillStyle = COL.frameEdge; ctx.fillRect(0, SILL_Y, W, 2.5);
+  // 汚れ
+  drawGrime(top, bot);
   // 跡（ガラスの上だけ）
   ctx.save();
   ctx.clip(glassClip);
   drawTrail(G.friend, C.TRAIL_ALPHA_FRIEND);
   drawTrail(G.player, C.TRAIL_ALPHA_PLAYER);
   ctx.restore();
+  // 光る粒と塊
+  drawGrains(top, bot);
+  drawLumps(top, bot);
+  // ほかの雫（混ざっている途中なら、つながりも）
+  for (const o of G.others) {
+    if (o.y < top - 30 || o.y > bot + 30) continue;
+    if (o.state === 'merging') drawMergeBridge(o);
+    const r = o.state === 'merging' ? o.r : o.r * easeOut(o.form);
+    if (r > 0.3) drawDrop(o, OTHER_ALPHA * (o.state === 'merging' ? 1 : o.form), r);
+  }
   // 親友
   const f = G.friend;
   if (f.state !== 'hidden') {
@@ -738,6 +1224,7 @@ function draw() {
   ctx.save();
   worldTransform();
   drawGlow();
+  drawRipples();
   drawDrop(G.player, 1);
   ctx.restore();
 
@@ -776,20 +1263,74 @@ function drawTrail(d, alpha) {
   ctx.fill();
 }
 
-function drawDrop(d, a) {
+// 汚れ：うすく濁った丸の集まりと、小さな黒い点
+function drawGrime(top, bot) {
+  for (const b of G.grime) {
+    if (b.state === 'gone' || b.y < top - 20 || b.y > bot + 20) continue;
+    const k = b.state === 'pushed' ? 1 - b.t / 0.6 : 1;
+    const r = b.r * (b.state === 'pushed' ? 1 + b.t * 0.8 : 1);
+    ctx.fillStyle = `rgba(${COL.grime},${0.22 * k})`;
+    ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, TAU); ctx.fill();
+    ctx.fillStyle = `rgba(${COL.grimeSpeck},${0.4 * k})`;
+    for (const [dx, dy, sr] of b.sp) { ctx.beginPath(); ctx.arc(b.x + dx, b.y + dy, sr, 0, TAU); ctx.fill(); }
+  }
+}
+
+// 塊：角の丸い四角
+function drawLumps(top, bot) {
+  ctx.lineCap = 'round';
+  for (const L of LUMPS) {
+    if (L.y < top - 20 || L.y > bot + 20) continue;
+    ctx.strokeStyle = COL.lump; ctx.lineWidth = C.LUMP_R * 2;
+    ctx.beginPath(); ctx.moveTo(L.x1, L.y); ctx.lineTo(L.x2, L.y); ctx.stroke();
+    ctx.strokeStyle = COL.lumpEdge; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(L.x1, L.y - C.LUMP_R * 0.55); ctx.lineTo(L.x2, L.y - C.LUMP_R * 0.55); ctx.stroke();
+  }
+}
+
+// 光る粒：まだの粒はゆっくりまたたく。触れた粒は明るく光ったまま
+function drawGrains(top, bot) {
+  for (const g of G.grains) {
+    if (g.y < top - 20 || g.y > bot + 20) continue;
+    if (g.lit) {
+      const age = G.t - g.litT;
+      const halo = ctx.createRadialGradient(g.x, g.y, 0, g.x, g.y, 19);
+      halo.addColorStop(0, 'rgba(255,255,255,0.32)');
+      halo.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = halo;
+      ctx.beginPath(); ctx.arc(g.x, g.y, 19, 0, TAU); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.beginPath(); ctx.arc(g.x, g.y, C.GRAIN_R * 1.3, 0, TAU); ctx.fill();
+      if (age < 0.7) {
+        const h = age / 0.7;
+        ctx.strokeStyle = `rgba(255,255,255,${0.6 * (1 - h)})`;
+        ctx.lineWidth = Math.max(1.2 / scale, 2 * (1 - h) + 0.5);
+        ctx.beginPath(); ctx.arc(g.x, g.y, 4 + 22 * easeOut(h), 0, TAU); ctx.stroke();
+      }
+    } else {
+      const tw = 0.5 + 0.5 * Math.sin(G.t * 2.2 + g.x * 0.05 + g.y * 0.01);
+      ctx.fillStyle = `rgba(${COL.light},${0.07 + 0.06 * tw})`;
+      ctx.beginPath(); ctx.arc(g.x, g.y, 11, 0, TAU); ctx.fill();
+      ctx.fillStyle = `rgba(${COL.light},${0.45 + 0.25 * tw})`;
+      ctx.beginPath(); ctx.arc(g.x, g.y, C.GRAIN_R, 0, TAU); ctx.fill();
+    }
+  }
+}
+
+function drawDrop(d, a, rr = d.r) {
   const s = 1 + d.el, inv = 1 / s;
   const cx = d.x + d.lean + d.jx;
-  const cy = d.y + (d.resting ? -d.r * d.el : 0); // 止まった時は、下の面を枠につけたまま
+  const cy = d.y + (d.resting ? -rr * d.el : 0); // 止まった時は、下の面を枠につけたまま
   const ca = Math.cos(d.ang), sa = Math.sin(d.ang);
-  const rx = d.r * Math.hypot(s * ca, inv * sa);  // 横の大きさ（だいたい）
-  const ry = d.r * Math.hypot(s * sa, inv * ca);  // 縦の大きさ（だいたい）
+  const rx = rr * Math.hypot(s * ca, inv * sa);  // 横の大きさ（だいたい）
+  const ry = rr * Math.hypot(s * sa, inv * ca);  // 縦の大きさ（だいたい）
   // うすい影
   ctx.fillStyle = `rgba(8,12,16,${0.22 * a})`;
-  ctx.beginPath(); ctx.ellipse(cx + d.r * 0.1, cy + d.r * 0.18, d.r * s, d.r * inv, d.ang, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx + rr * 0.1, cy + rr * 0.18, rr * s, rr * inv, d.ang, 0, TAU); ctx.fill();
   // 体とふち
-  ctx.beginPath(); ctx.ellipse(cx, cy, d.r * s, d.r * inv, d.ang, 0, TAU);
+  ctx.beginPath(); ctx.ellipse(cx, cy, rr * s, rr * inv, d.ang, 0, TAU);
   ctx.fillStyle = `rgba(${COL.drop},${0.34 * a})`; ctx.fill();
-  ctx.lineWidth = Math.max(1.1 / scale, d.r * 0.09);
+  ctx.lineWidth = Math.max(1.1 / scale, rr * 0.09);
   ctx.strokeStyle = `rgba(${COL.light},${0.55 * a})`; ctx.stroke();
   // 下の明るいところ（光が集まる）
   ctx.fillStyle = `rgba(${COL.light},${0.2 * a})`;
@@ -820,6 +1361,31 @@ function drawBridge() {
       const u = 1 - ((G.transferT * 2.2 + i / 3) % 1);
       ctx.beginPath(); ctx.arc(lerp(p.x, f.x, u), lerp(p.y, f.y, u), 1.4 + 1.2 * (1 - u), 0, TAU); ctx.fill();
     }
+  }
+}
+
+// 混ざる間：二つの間が太くつながって、相手が吸い込まれる
+function drawMergeBridge(o) {
+  const p = G.player;
+  const k = Math.min(1, o.mt / C.MERGE_TIME);
+  ctx.fillStyle = `rgba(${COL.drop},0.34)`;
+  ctx.beginPath();
+  for (let i = 1; i <= 4; i++) {
+    const u = i / 5;
+    const x = lerp(p.x, o.x, u), y = lerp(p.y, o.y, u);
+    const r = lerp(p.r, Math.max(o.r, 1), u) * (0.55 + 0.3 * Math.abs(2 * u - 1)) * (1 - 0.5 * k);
+    ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, TAU);
+  }
+  ctx.fill();
+}
+
+// 混ざった時の、小さな波紋（救われた時の光より控えめ）
+function drawRipples() {
+  for (const r of G.ripples) {
+    const h = r.t / 0.6;
+    ctx.strokeStyle = `rgba(${COL.light},${0.35 * (1 - h)})`;
+    ctx.lineWidth = Math.max(1.2 / scale, 1.6 * (1 - h) + 0.4);
+    ctx.beginPath(); ctx.arc(r.x, r.y, r.r0 * (1 + 1.4 * easeOut(h)), 0, TAU); ctx.stroke();
   }
 }
 
@@ -859,6 +1425,12 @@ function drawIcon() {
     ctx.beginPath(); ctx.arc(x + s / 2, y + s / 2, 12.5, 0, TAU); ctx.stroke();
   } else if (ui.icon === 'soundOff') {
     ctx.beginPath(); ctx.arc(x + s / 2, y + s / 2, 4, 0, TAU); ctx.stroke();
+  } else if (ui.icon === 'pullOn') {   // 小さい丸が、大きい丸にくっついている
+    ctx.beginPath(); ctx.arc(x + 16, y + s / 2, 8, 0, TAU); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x + 4, y + s / 2, 4, 0, TAU); ctx.fill();
+  } else if (ui.icon === 'pullOff') {  // 小さい丸と大きい丸が、離れている
+    ctx.beginPath(); ctx.arc(x + 16, y + s / 2, 8, 0, TAU); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x - 10, y + s / 2, 4, 0, TAU); ctx.fill();
   }
 }
 
@@ -890,28 +1462,42 @@ newGame();
 requestAnimationFrame(frame);
 
 // ---------------------------------------------------------------------
-//  確かめ用（ブラウザの開発ツールから __shizuku で使う）
+//  確かめ用（ブラウザの開発ツールから __shizuku で使う。遊ぶ人には見えない）
 // ---------------------------------------------------------------------
 window.__shizuku = {
   CONFIG, cam, Sound,
+  LEVEL: { LUMPS, GAPS, GRAINS0, GRIME0, SPAWNS0, LANE, SILL_Y, paneTop },
+  sizeFall, sizeSteer, sizeResponse, friendPathX,
   get G() { return G; },
   get paused() { return paused; },
   set paused(v) { paused = !!v; },
+  get pull() { return pull; },
+  set pull(v) { pull = !!v; },
   restart: newGame,
   draw,
   // 早送りで遊ぶ。controller(G) が -1/0/1 を返す
-  sim(seconds, controller) {
+  sim(seconds, controller, dt = DT) {
     simulating = true;
     try {
-      const n = Math.round(seconds / DT);
-      for (let i = 0; i < n; i++) { testDir = controller ? controller(G) : 0; step(DT); }
+      const n = Math.round(seconds / dt);
+      for (let i = 0; i < n; i++) { testDir = controller ? controller(G) : 0; step(dt); }
     } finally { testDir = null; simulating = false; }
     return this.summary();
   },
+  // 1回遊んだ結果
   summary() {
     const s = G.stats;
-    const avg = s.playerSill !== null ? (SILL_Y - C.MOVE_R - G.releaseY) / (s.playerSill - s.release) : null;
-    return Object.assign({}, s, { avgFallSpeed: avg, phase: G.phase, t: G.t });
+    const total = { gap: 0, grime: 0, free: 0 };
+    for (const g of GRAINS0) total[g.kind]++;
+    return Object.assign({}, s, {
+      grains: Object.assign({}, s.grains),
+      grainsSum: s.grains.gap + s.grains.grime + s.grains.free,
+      grainsTotal: total,
+      finalR: s.finalR !== null ? s.finalR : G.player.rT,
+      playTime: s.fadeDone,
+      stuckNow: !!G.gstuck,
+      phase: G.phase, t: G.t, pull, camera: cam.mode,
+    });
   },
 };
 </script>
