@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#1b2027">
-<title>しずく 試作2</title>
+<title>しずく 試作3</title>
 <style>
   html, body { margin: 0; height: 100%; overflow: hidden; background: #1b2027; }
   body { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
@@ -19,130 +19,115 @@
 // =====================================================================
 //  調整用の数値（ここを変えると遊びの感触が変わる）
 //  ・長さは「世界の単位」。ガラス1枚の幅が PANE_W。
-//    画面には、ガラス1枚と枠がちょうど入るように拡大・縮小して映す。
-//  ・速さは「1秒に進む世界の単位」。
+//  ・速さは「1秒に進む世界の単位」。傾き t は -1（左いっぱい）〜 1（右いっぱい）。
 // =====================================================================
 const CONFIG = {
   // --- 窓 ---
   PANE_W: 360,              // ガラス1枚の幅
   PANE_H: 520,              // ガラス1枚の高さ
-  PANE_COUNT: 10,           // 縦に並ぶガラスの枚数（場面の数。下の SCENES と同じ数にする）
-  BAR: 14,                  // ガラスとガラスの間の桟（さん）の太さ
+  PANE_COUNT: 6,            // ガラスの枚数（下の LEVEL と同じ数にする）
+  BAR: 14,                  // ガラスとガラスの間の桟の太さ
   FRAME: 18,                // 左右と上の窓枠の太さ
   SILL: 34,                 // 下の窓枠（ゴール）の太さ
 
-  // --- プレイヤーの雫：動けない時 ---
-  START_X: 0.5,             // 始まりの横の位置（0=左端、1=右端）
-  START_Y: 0.36,            // 始まりの縦の位置（1枚目のガラスの上から何割か）
+  // --- 最初の場面（試作1のまま）---
+  START_X: 0.5, START_Y: 0.36,
   STUCK_R: 7,               // 動けない時の半径
-  STICK_SPRING: 30,         // 張り付く強さ（大きいほど、すぐ元の位置に引き戻される）
+  STICK_SPRING: 30,         // 張り付く強さ
   STICK_DAMP: 5,            // 引き戻された後の揺れの止まりやすさ
-  STUCK_PUSH: 75,           // 押して動こうとする力（PUSH ÷ SPRING が、押している間のずれ）
-  STUCK_KICK: 22,           // 押した瞬間のはずみ
-  STUCK_CREEP: 0.8,         // 押し続けた時に、じわじわずれる速さ（毎秒）
+  STUCK_PUSH: 75,           // 傾けて動こうとする力（いっぱいに傾けた時）
+  STUCK_KICK: 22,           // 傾け始めた瞬間のはずみ
+  STUCK_CREEP: 0.8,         // 傾け続けた時に、じわじわずれる速さ
   STUCK_CREEP_MAX: 3,       // じわじわずれる最大の幅
-  STRETCH_MAX: 0.45,        // 押した方向に伸びる量（0.45 = 45%伸びる）
-  TREMBLE: 0.8,             // 押している間の震えの大きさ
-  TREMBLE_HZ: 14,           // 震えの速さ（1秒に何回）
-
-  // --- プレイヤーの雫：動ける時（半径 MOVE_R の時の値）---
-  MOVE_R: 13,               // 水をもらって動けるようになった後の半径
-  FALL_SPEED: 110,          // 下へ流れる速さ（毎秒）
+  STRETCH_MAX: 0.45,        // 傾けた方向に伸びる量
+  TREMBLE: 0.8,             // 震えの大きさ
+  TREMBLE_HZ: 14,           // 震えの速さ
+  MOVE_R: 13,               // 動けるようになった後の半径（このあと大きさは変わらない）
   FALL_ACCEL_TIME: 1.0,     // 止まった状態から流れる速さになるまでの秒数
-  STEER_SPEED: 95,          // 左右の効き（横に動く最大の速さ、毎秒）
-  STEER_RESPONSE: 5,        // 左右の入力への反応の速さ（大きいほどきびきび）
-  STEER_SLOW: 0.25,         // 横に最大の速さで動いた時、下へ進む速さが落ちる割合
+  FRIEND_DELAY: 5.0, FRIEND_AFTER_INPUT: 2.0, FRIEND_DELAY_MAX: 10.0,
+  FRIEND_R: 18, FRIEND_R_AFTER: 15, FRIEND_APPROACH_SPEED: 90, TRANSFER_TIME: 0.9,
+  FRIEND_LEAVE_SPEED: 230,  // 動けたあと、親友が先へ流れていく速さ
+  GLOW_TIME: 1.6, GLOW_RING: 6,
 
-  // --- 大きさで変わること（混ざって大きくなるほど）---
-  FALL_SIZE_EXP: 1.2,       // 速く流れる強さ。速さ = FALL_SPEED ×（半径÷MOVE_R）^これ
-  FALL_MAX: 175,            // 流れる速さの上限（画面が速く流れすぎないように）
-  STEER_SIZE_EXP: 2.0,      // 曲がりにくくなる強さ。横の速さ = STEER_SPEED ×（MOVE_R÷半径）^これ
-  STEER_RESPONSE_EXP: 1.5,  // 反応が鈍くなる強さ。反応 = STEER_RESPONSE ×（MOVE_R÷半径）^これ
+  // --- 操作 ---
+  TILT_MAX_DEG: 28,         // 本体をこの角度まで傾けると、傾きが最大
+  TILT_DEAD_DEG: 2,         // これより小さい傾きは「まっすぐ」とみなす
+  TILT_SMOOTH: 14,          // 本体の傾きのなめらかさ（大きいほど速く追いつく）
+  KEY_RAMP: 1.7,            // キー・タッチ：押している間、傾きが1秒にこれだけ増える（最大1）
+  KEY_RETURN: 2.5,          // キー・タッチ：離すと、1秒にこれだけ戻る
+  TILT_EVENT_WAIT: 1.5,     // 傾きが取れるか待つ秒数。取れなければタッチ操作に切り替える
+  STOP_TILT: 0.15,          // 止まれる性質（蜜）：傾きがこれより小さいと止まる
+  PACE: 0.8,                // 全体の動きの速さ（性質の速さと水の流れに、まとめてかける。1回の長さの調整用）
+  GRAVITY_SHOW_DEG: 30,     // 雫の形のかたむきで見せる、重力の傾き（最大の角度）
 
-  // --- ほかの雫 ---
-  OTHER_SPEED: 35,          // ほかの雫が流れる速さ（半径10の時、毎秒）。プレイヤーより遅いので追いつく
-  OTHER_SPEED_PER_R: 2,     // 半径が1大きいごとに、速くなる分
-  OTHER_SPAWN_AHEAD: 260,   // プレイヤーがこの距離まで近づいたら、ほかの雫がガラスに現れる
-  OTHER_FORM_TIME: 0.6,     // 現れる時に、ふくらむ時間（秒）。その間は動かない
-  MERGE_TIME: 0.3,          // 触れてから、ひとつになるまでの時間（秒）
+  // --- くもりと場面 ---
+  CELL: 12,                 // きれいにした量を数える、ます目の大きさ
+  PATCH_REVEAL: 0.25,       // どれか1つの濃い汚れを、この割合だけきれいにすると、場面が全部見える（真ん中を1回通ると約3割）
+  FOG_REVEAL: 0.5,          // または、ふつうのくもりを、この割合だけきれいにしても見える（止まれる性質で丁寧に拭く道）
+  FOG_THIN: 0.35,           // きれいにするほど、くもり全体が薄くなる（見える直前で、この割合だけ薄い）
+  CLEAN_W: 1.0,             // きれいにする幅（雫の直径の何倍か）
+  FOG_RES: 1.5,             // くもりの絵の細かさ（世界の1単位あたりの点の数）
+  SCENE_RES: 1.5,           // 場面の絵の細かさ
+  REVEAL_FADE: 0.8,         // 場面が見える時、くもりが消えるまでの秒数
 
-  // --- 寄ってくる（M キーで切り替え）---
-  PULL_RANGE_X: 120,        // 横にこの距離より近い雫が寄ってくる（いちばん近い1つだけ）
-  PULL_RANGE_Y: 260,        // プレイヤーより下で、縦にこの距離より近い雫が寄ってくる
-  PULL_ACCEL: 60,           // 寄ってくる強さ
-  PULL_MAX: 30,             // 寄ってくる横の速さの上限（いちばん曲がりにくい時の自分よりも遅い）
+  // --- 障害物 ---
+  ROCK_R: 21,               // 岩の半径
+  ROCK_NUDGE: 70,           // 止まれない雫が岩の上に乗った時、横へ転がり落ちる強さ
+  ROCK_ESCAPE: 0.5,         // 壊せない岩と壁の角などで、この秒数動けなかったら、岩の上を越えて広い方へ出てくる（詰まないように）
+  GOO_RESCUE_DELAY: 1.5,    // ねばねばに捕まってから、上に油の雫が現れるまでの秒数
+  GOO_RESCUE_DIST: 160,     // 助けの油の雫が現れる高さ（プレイヤーの上）
+  GOO_RESCUE_SPEED: 120,    // 助けの油の雫が流れてくる速さ
+  GOO_OIL_SLOW: 0.8,        // 油がねばねばをすべり抜ける時の速さ（何倍か）
+  STREAM_SPEED: 260,        // 水の流れの速さ
+  STREAM_HW: 55,            // 水の流れの太さの半分
+  STREAM_GRIP: 10,          // 流れにつかまる強さ（大きいほど、入った瞬間に流される）
 
-  // --- すき間（塊）---
-  LUMP_R: 9,                // 塊の厚みの半分
-  GAP_PASS_R: 14.5,         // この半径より小さい雫だけがすき間を通れる（すき間の幅 = この2倍）
-  SLIDE_SPEED: 70,          // 大きい雫が、塊の上を横へすべる速さ
-  GAP_CAPTURE: 22,          // 小さい雫が、すき間の中心から左右この距離以内に来たら、すき間へ吸い込まれる
+  // --- ほかの雫（性質の雫）---
+  OTHER_R: 11,              // ほかの雫の半径
+  OTHER_SPEED: 14,          // ほかの雫がゆっくり流れる速さ
+  OTHER_FORM_TIME: 0.5,     // ガラスに現れる時に、ふくらむ時間
+  MERGE_TIME: 0.25,         // 触れてから、ひとつになるまでの時間
 
-  // --- 汚れ ---
-  GRIME_PUSH_R: 16,         // この半径から、汚れを押し流して進める（それより小さいと引っかかる）
-  GRIME_PUSH_SLOW: 0.6,     // 押し流している間の、下へ進む速さ（何倍に落ちるか）
-  GRIME_RESCUE_DELAY: 1.5,  // 引っかかってから、上に助けの雫が現れるまでの秒数
-  GRIME_RESCUE_DIST: 180,   // 助けの雫が現れる高さ（プレイヤーの上）
-  GRIME_RESCUE_SPEED: 110,  // 助けの雫が流れてくる速さ
-  GRIME_FREE_ACCEL: 0.6,    // 抜けてから、流れる速さに戻るまでの秒数
-
-  // --- 光る粒 ---
-  GRAIN_R: 4.5,             // 光る粒の半径（スマホでも見えるように）
-
-  // --- 親友の雫 ---
-  FRIEND_DELAY: 5.0,        // 始まってから親友が現れるまでの秒数
-  FRIEND_AFTER_INPUT: 2.0,  // 一度も押していない時は、最初に押してからこの秒数は待つ
-  FRIEND_DELAY_MAX: 10.0,   // それでも、この秒数がたったら必ず現れる
-  FRIEND_R: 18,             // 親友の半径（来た時）
-  FRIEND_R_AFTER: 15,       // 水を渡した後の親友の半径
-  FRIEND_APPROACH_SPEED: 90,// 親友が近づいてくる速さ（毎秒）
-  TRANSFER_TIME: 0.9,       // 水が移る時間（秒）
-  FRIEND_GAP: 150,          // 親友がプレイヤーの先（下）を行く距離。この距離を保とうとする
-  FRIEND_WAIT_GAP: 260,     // これより離れたら、親友は止まって待つ
-  FRIEND_MAX_SPEED: 1.4,    // 親友がいちばん速い時（プレイヤーの流れる速さの何倍か）
-  FRIEND_SWAY: 6,           // 親友の左右のゆれの幅（通り道が狭い所もあるので小さく）
-  FRIEND_SWAY_LEN: 300,     // ゆれ1回分の縦の長さ
-
-  // --- 跡 ---
-  TRAIL_WIDTH: 0.55,        // 跡の太さ（雫の直径に対する割合）
-  TRAIL_ALPHA_FRIEND: 0.20, // 親友の跡の濃さ
-  TRAIL_ALPHA_PLAYER: 0.13, // プレイヤーの跡の濃さ
-  TRAIL_BEAD_EVERY: 38,     // 跡に残る小さな粒の間隔（だいたい）
-
-  // --- 救われる瞬間の演出 ---
-  GLOW_TIME: 1.6,           // 光が消えるまでの秒数
-  GLOW_RING: 6,             // 光の輪が広がる大きさ（雫の半径の何倍か）
-
-  // --- カメラ ---
-  CAMERA_DEFAULT: 'a',      // URL に ?camera= がない時のカメラ（'a' か 'b'）
-  VIEW_MARGIN: 40,          // ガラスの上下に見せる余白（窓枠が見えるように）
-  CAM_B_PLAYER_POS: 0.30,   // B：プレイヤーを画面の上から何割の所に置くか
-  CAM_B_SMOOTH: 0.7,        // B：カメラが追いつくまでの時間の目安（秒）。大きいほどゆっくり
-
-  // --- 終わり ---
-  END_WAIT: 1.0,            // 二人とも止まってから暗くなり始めるまでの秒数
-  FADE_TIME: 4.0,           // 暗くなるのにかかる秒数（暗くなりきったらタップでやり直せる）
+  // --- カメラ・終わり ---
+  VIEW_MARGIN: 40,          // ガラスの上下に見せる余白
+  END_WAIT: 1.2,            // 下の枠に着いてから、引き始めるまでの秒数
+  ZOOM_TIME: 3.5,           // 窓全体まで引くのにかかる秒数
 
   // --- 音 ---
   VOLUME: 0.6,              // 全体の音量
-  SLIDE_VOLUME: 0.035,      // 流れている間の水の音の大きさ
+  SLIDE_VOLUME: 0.012,      // 流れている間の小さな水の音（ご褒美の音が埋もれないよう、とても小さく）
+  STREAM_VOLUME: 0.03,      // 水の流れの中にいる時の音
 };
 
-// 色（壁・ガラス・枠・塊・汚れ・雫）。色数は増やさない（灰色の濃さ違いだけ）。
+// 性質ごとの動き。キーは性質を名前順に並べて「+」でつないだもの（'' は性質なし）。
+//  fall: 傾けていない時に下へ流れる速さ（0 = 止まれる）　fallTilt: 傾けた時に増える下への速さ
+//  side: いっぱいに傾けた時の横の速さ　sideResp/fallResp: 速さが変わる素早さ（小さいほど行き過ぎる・曲がりにくい）
+//  curve: 傾きの効き方（1未満だと、少しの傾きでぐっと効く）　stop: 傾きを戻すと止まれる
+//  stream: 水の流れに流される強さ　goo: ねばねばを抜けられる　rock: 削れる岩の固さ（1ふつう、2固い）
+//  erode: 岩を削る速さ（1秒に、岩1つの何割か）　smash: 岩を一瞬で砕く　bounce: 壁で跳ね返る　wallStick: 壁や岩にくっつく
+const STATES = {
+  '':            { fall: 62,  fallTilt: 25,  side: 105, sideResp: 5,   fallResp: 4,   curve: 1,   stop: false, stream: 1.0 },
+  'oil':         { fall: 85,  fallTilt: 70,  side: 170, sideResp: 1.4, fallResp: 1.6, curve: 1,   stop: false, stream: 1.6, goo: true },
+  'honey':       { fall: 0,   fallTilt: 42,  side: 60,  sideResp: 5,   fallResp: 5,   curve: 1,   stop: true,  stream: 0.08 },
+  'sand':        { fall: 100, fallTilt: 40,  side: 70,  sideResp: 1.0, fallResp: 3,   curve: 0.5, stop: false, stream: 1.0, rock: 1, erode: 0.9 },
+  'honey+oil':   { fall: 0,   fallTilt: 110, side: 150, sideResp: 6,   fallResp: 6,   curve: 1,   stop: true,  stream: 1.2, goo: true },
+  'oil+sand':    { fall: 150, fallTilt: 30,  side: 22,  sideResp: 0.7, fallResp: 2.5, curve: 0.5, stop: false, stream: 1.0, goo: true, rock: 1, smash: true },
+  'honey+sand':  { fall: 0,   fallTilt: 28,  side: 35,  sideResp: 3,   fallResp: 4,   curve: 1,   stop: true,  stream: 0.08, rock: 1, erode: 0.7 },
+  'oil+oil':     { fall: 120, fallTilt: 90,  side: 230, sideResp: 0.7, fallResp: 1.2, curve: 1,   stop: false, stream: 2.0, goo: true, bounce: 0.85 },
+  'honey+honey': { fall: 0,   fallTilt: 18,  side: 48,  sideResp: 6,   fallResp: 6,   curve: 1,   stop: true,  stream: 0.03, wallStick: true },
+  'sand+sand':   { fall: 125, fallTilt: 15,  side: 8,   sideResp: 1,   fallResp: 3,   curve: 0.5, stop: false, stream: 0.6, rock: 2, smash: true },
+};
+
+// 色
 const COL = {
   wall: '#1b2027',
-  glass: '#2b3744',
   frame: '#46505c',
   frameEdge: '#56616e',
-  lump: '#59626d',
-  lumpEdge: '#6b7581',
-  grime: '150,148,138',
-  grimeSpeck: '16,18,20',
   drop: '190,210,226',
   light: '238,245,250',
 };
-const FRIEND_ALPHA = 0.7;  // 親友の雫の濃さ（プレイヤーは 1）
-const OTHER_ALPHA = 0.85;  // ほかの雫の濃さ
+const PROP_RGB = { honey: [240, 172, 42], sand: [150, 104, 58], water: [205, 228, 245] }; // 油は虹色（時間で色が変わる）
+const FRIEND_ALPHA = 0.7;
 
 // ---------------------------------------------------------------------
 //  小さな道具
@@ -154,228 +139,256 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const smooth = t => t * t * (3 - 2 * t);
 const easeOut = t => 1 - (1 - t) * (1 - t) * (1 - t);
 const approach = (v, target, stepSize) => (v < target ? Math.min(target, v + stepSize) : Math.max(target, v - stepSize));
-// 伸び縮みは向きが反対でも同じ形なので、角度の差は ±90° の中で測る
 function angDiff(a, b) {
   let d = (b - a) % Math.PI;
   if (d > Math.PI / 2) d -= Math.PI;
   if (d < -Math.PI / 2) d += Math.PI;
   return d;
 }
-
-// 大きさで変わること
-const sizeFall = r => Math.min(C.FALL_MAX, C.FALL_SPEED * Math.pow(r / C.MOVE_R, C.FALL_SIZE_EXP));
-const sizeSteer = r => C.STEER_SPEED * Math.pow(C.MOVE_R / r, C.STEER_SIZE_EXP);
-const sizeResponse = r => C.STEER_RESPONSE * Math.pow(C.MOVE_R / r, C.STEER_RESPONSE_EXP);
+function prng(seed) { // いつも同じ並びになる乱数（見た目を毎回同じにするため）
+  let s = seed % 2147483647; if (s <= 0) s += 2147483646;
+  return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+}
+function hslRGB(h, s, l) {
+  const a = s * Math.min(l, 1 - l);
+  const f = n => { const k = (n + h / 30) % 12; return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); };
+  return [f(0), f(8), f(4)];
+}
+function propRGB(kind, phase) {
+  if (kind === 'oil') return hslRGB(((performance.now() / 1000) * 90 + phase * 140) % 360, 0.75, 0.62);
+  return PROP_RGB[kind];
+}
 
 // ---------------------------------------------------------------------
 //  窓（世界）
 // ---------------------------------------------------------------------
 const W = C.PANE_W, H = C.PANE_H, STEP_Y = C.PANE_H + C.BAR;
-const SILL_Y = C.PANE_COUNT * C.PANE_H + (C.PANE_COUNT - 1) * C.BAR; // 下の枠の上の面
+const SILL_Y = C.PANE_COUNT * C.PANE_H + (C.PANE_COUNT - 1) * C.BAR;
 const paneTop = k => k * STEP_Y;
-// 桟の真ん中を越えたら次のガラス
 const paneOf = y => clamp(Math.floor((y + C.BAR / 2) / STEP_Y), 0, C.PANE_COUNT - 1);
-const glassClip = new Path2D();
-for (let k = 0; k < C.PANE_COUNT; k++) glassClip.rect(0, paneTop(k), W, H);
 
 // ---------------------------------------------------------------------
-//  場面（ガラス1枚に1つ）。座標はそのガラスの中の位置（x: 0〜360、y: 0〜520）
-//   grains: 光る粒 [x, y, 種類]   種類：'gap'（すき間の先）'grime'（汚れの先）'free'（そのほか）
-//   drops:  ほかの雫 [x, y, 半径]（プレイヤーが近づくと、そこに現れて流れ出す）
-//   lumps:  塊（すき間）    grime: 汚れ [中心x, 中心y, 幅, 高さ]
-//   lane:   親友の通り道 [y, x]（何もない所を通る）
+//  ガラスごとの場面と障害物（座標は、そのガラスの中の位置。x: 0〜360、y: 0〜520）
+//   scene: 向こうに見える部屋の絵
+//   patches: 濃い汚れ [中心x, 中心y, 横の半径, 縦の半径]（どれか1つを拭けば場面が見える）
+//   rocks: 岩 [x, y, 固さ（1 ふつう／2 固い）]　goo: ねばねば [左, 右, 上, 下]
+//   streams: 水の流れ [始まりx, 始まりy, 終わりx, 終わりy]（始まりから終わりへ流れる）
+//   drops: 性質の雫 [種類, x, y]（このガラスに入った時に現れる）
 // ---------------------------------------------------------------------
-// すき間：塊2つを横に並べ、間に GAP_PASS_R×2 のすき間をあける。
-// slide は、大きい雫がその塊の上ですべる向き（-1 左、1 右）
-function gapRow(y, gapX, x1, x2, slideL, slideR) {
-  const e = C.GAP_PASS_R + C.LUMP_R;
-  const row = [{ x1, x2: gapX - e, y, slide: slideL }, { x1: gapX + e, x2, y, slide: slideR }];
-  row.gap = { x: gapX, y };
-  return row;
+function rockArc(cx, cy, R, a0, a1, stepDeg, hard) {
+  const out = [];
+  for (let a = a0; a <= a1 + 0.01; a += stepDeg) {
+    const r = a * Math.PI / 180;
+    out.push([cx + R * Math.cos(r), cy + R * Math.sin(r), hard]);
+  }
+  return out;
 }
-const SCENES = [
-  { // 1枚目：救われる（試作1のまま）。まっすぐ下に粒が1つ（そのまま取れる）
-    grains: [[180, 385, 'free']],
-    lane: [[300, 180]],
+const LEVEL = [
+  { // 1枚目：窓辺に立っている。見せる：通るときれいになり、場面が見える
+    scene: 'window',
+    patches: [[180, 375, 48, 72]],
   },
-  { // 2枚目：すき間を見せる。全員まだ小さいので通れる。親友は左の端を行く
-    lumps: gapRow(300, 180, 100, 260, -1, 1),
-    grains: [[180, 345, 'gap']],
-    lane: [[150, 48], [430, 48]],
+  { // 2枚目：テレビの前に座っている。岩を見せる（岩の真上に砂）
+    scene: 'tv',
+    patches: [[270, 388, 56, 44]],
+    rocks: [...rockArc(268, 385, 80, 180, 360, 30, 1), [188, 425, 1], [190, 460, 1]],
+    drops: [['sand', 268, 95], ['oil', 70, 130]],
   },
-  { // 3枚目：混ざるのを試す。左右に雫、真ん中に粒
-    drops: [[105, 150, 11], [255, 185, 12]],
-    grains: [[180, 410, 'free']],
-    lane: [[200, 180], [460, 180]],
+  { // 3枚目：机で何かを書いている。ねばねばを見せる（右のねばねばのふたの奥。左上に油）
+    scene: 'desk',
+    patches: [[282, 398, 58, 52]],
+    goo: [[210, 354, 288, 318]],
+    rocks: [[192, 328, 2], [192, 366, 2], [192, 404, 2], [192, 442, 2]],
+    drops: [['oil', 200, 70]],
   },
-  { // 4枚目：汚れを見せる。小さいと引っかかり、大きいと押し流す。親友は右の端を行く
-    grime: [[180, 290, 130, 36]],
-    grains: [[180, 352, 'grime']],
-    lane: [[170, 312], [440, 312]],
+  { // 4枚目：植物に水をやっている。流れを見せる（右上に水、その下に蜜）
+    scene: 'plant',
+    patches: [[305, 400, 42, 45]],
+    streams: [[372, 255, 140, 292]],
+    rocks: [[236, 318, 2], [236, 356, 2], [236, 394, 2], [236, 432, 2], [236, 468, 2]],
+    drops: [['water', 250, 60], ['honey', 290, 130]],
   },
-  { // 5枚目：すき間を試す。すき間のすぐ上に雫（通るには、先に避ける）
-    lumps: gapRow(330, 240, 70, 300, -1, 1),
-    drops: [[240, 70, 12]],
-    grains: [[240, 375, 'gap']],
-    lane: [[170, 334], [450, 334]],
+  { // 5枚目：ギターを弾いている。何を手放すか（左の岩には砂、右のねばねばには油）
+    scene: 'guitar',
+    patches: [[70, 392, 42, 38], [300, 392, 45, 38]],
+    rocks: [...rockArc(70, 388, 58, 180, 360, 36, 1), [128, 425, 1], [128, 460, 1],
+            [238, 330, 2], [238, 368, 2], [238, 406, 2], [238, 444, 2]],
+    goo: [[255, 360, 290, 318]],
+    drops: [['sand', 70, 70], ['water', 180, 140], ['honey', 300, 70]],
   },
-  { // 6枚目：汚れを試す。汚れのすぐ上に雫（先に混ざれば押し流せる）
-    grime: [[220, 315, 120, 34]],
-    drops: [[220, 70, 13]],
-    grains: [[220, 378, 'grime']],
-    lane: [[170, 327], [450, 327]],
-  },
-  { // 7枚目：ひねる。左にすき間、右に汚れ（同じ高さ）。どちらか片方しか取れない
-    lumps: gapRow(320, 90, C.LUMP_R, 150, 1, 1),
-    grime: [[285, 318, 100, 34]],
-    drops: [[285, 80, 12]],
-    grains: [[90, 365, 'gap'], [285, 382, 'grime']],
-    lane: [[150, 190], [450, 190]],
-  },
-  { // 8枚目：休み。離れた粒2つ（小さいと両方取れ、大きいと片方）と雫2つ
-    drops: [[150, 60, 10], [300, 150, 13]],
-    grains: [[95, 170, 'free'], [265, 390, 'free']],
-    lane: [[200, 210], [460, 210]],
-  },
-  { // 9枚目：ひねる。左にすき間、右に汚れ。今度は、すき間のすぐ上に雫（混ざると、すき間を通れなくなる）
-    lumps: gapRow(320, 100, C.LUMP_R, 160, 1, 1),
-    grime: [[285, 318, 90, 34]],
-    drops: [[100, 80, 11]],
-    grains: [[100, 365, 'gap'], [285, 382, 'grime']],
-    lane: [[150, 197], [450, 197]],
-  },
-  { // 10枚目：おわり。なにもない
-    lane: [[200, 180]],
+  { // 6枚目：ベッドで眠っている。砂＋砂（固い岩）か、蜜（流れ）か。油＋蜜では届かない
+    scene: 'bed',
+    patches: [[80, 395, 42, 40], [305, 400, 42, 45]],
+    rocks: [...rockArc(80, 392, 55, 180, 360, 36, 2), [135, 428, 2], [135, 462, 2],
+            [245, 318, 2], [245, 356, 2], [245, 394, 2], [245, 432, 2], [245, 468, 2]],
+    streams: [[372, 255, 175, 288]],
+    drops: [['sand', 80, 60], ['sand', 80, 150]],
   },
 ];
 
-const LUMPS = [];   // 塊（動かない）
-const GAPS = [];    // すき間の中心
-const GRIME0 = [];  // 汚れの丸（1回ごとに写して使う。押し流すと消える）
-const GRAINS0 = []; // 光る粒
-const SPAWNS0 = []; // ほかの雫が現れる所
-const LANE = [];    // 親友の通り道 [y, x]
-(function buildLevel() {
-  let seed = 7; // 汚れの形は毎回同じにする
-  const rand = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
-  SCENES.forEach((s, k) => {
-    const top = paneTop(k);
-    for (const L of s.lumps || []) LUMPS.push({ x1: L.x1, x2: L.x2, y: top + L.y, slide: L.slide });
-    if (s.lumps && s.lumps.gap) GAPS.push({ x: s.lumps.gap.x, y: top + s.lumps.gap.y });
-    for (const [cx, cy, w, h] of s.grime || []) {
-      for (let y = cy - h / 2; y <= cy + h / 2 + 0.1; y += 18) {
-        for (let x = cx - w / 2; x <= cx + w / 2 + 0.1; x += 18) {
-          GRIME0.push({
-            x: x + (rand() - 0.5) * 6, y: top + y + (rand() - 0.5) * 6, r: 9 + rand() * 5,
-            sp: [[(rand() - 0.5) * 9, (rand() - 0.5) * 9, 1 + rand() * 1.5], [(rand() - 0.5) * 9, (rand() - 0.5) * 9, 0.8 + rand()]],
-          });
-        }
+// ます目（きれいにした量を数える）と、障害物を世界の座標にする
+const NX = Math.ceil(W / C.CELL), NY = Math.ceil(H / C.CELL);
+const PANES = LEVEL.map((L, k) => {
+  const top = paneTop(k);
+  const rnd = prng(31 + k * 17);
+  const rocks0 = (L.rocks || []).map(([x, y, hard]) => {
+    const n = 9, jag = [];
+    for (let i = 0; i < n; i++) jag.push(0.82 + rnd() * 0.3); // 岩のごつごつ
+    return { x, y: top + y, r: C.ROCK_R, hard, jag, rot: rnd() * TAU };
+  });
+  const goo = [];
+  for (const [x0, x1, y0, y1] of L.goo || []) {
+    for (let y = y0; y <= y1 + 0.1; y += 15) {
+      for (let x = x0; x <= x1 + 0.1; x += 16) {
+        goo.push({ x: x + (rnd() - 0.5) * 5, y: top + y + (rnd() - 0.5) * 5, r: 12 + rnd() * 4, ph: rnd() * TAU });
       }
     }
-    for (const [x, y, kind] of s.grains || []) GRAINS0.push({ x, y: top + y, kind });
-    for (const [x, y, r] of s.drops || []) SPAWNS0.push({ x, y: top + y, r });
-    for (const [y, x] of s.lane || []) LANE.push([top + y, x]);
+  }
+  const streams = (L.streams || []).map(([x0, y0, x1, y1]) => {
+    const len = Math.hypot(x1 - x0, y1 - y0);
+    return { x0, y0: top + y0, x1, y1: top + y1, dx: (x1 - x0) / len, dy: (y1 - y0) / len, len };
   });
-})();
+  const patches = (L.patches || []).map(([x, y, rx, ry]) => ({ x, y, rx, ry, cells: 0 }));
+  // ます目の種類：0 以上＝その番号の濃い汚れ、-1＝ふつうのくもり、-2＝水の流れ（もともときれい）や窓の外
+  const kind = new Int8Array(NX * NY);
+  let normal = 0;
+  for (let j = 0; j < NY; j++) {
+    for (let i = 0; i < NX; i++) {
+      const cx = (i + 0.5) * C.CELL, cy = (j + 0.5) * C.CELL;
+      let v = -1;
+      patches.forEach((pt, n) => { if (((cx - pt.x) / pt.rx) ** 2 + ((cy - pt.y) / pt.ry) ** 2 <= 1) v = n; });
+      for (const s of streams) if (streamDist(s, cx, top + cy) <= C.STREAM_HW) v = -2;
+      if (cy > H) v = -2;
+      kind[j * NX + i] = v;
+      if (v >= 0) patches[v].cells++; else if (v === -1) normal++;
+    }
+  }
+  return {
+    k, top, scene: L.scene, patches, rocks0, goo, streams,
+    drops: (L.drops || []).map(([kind, x, y]) => ({ kind, x, y: top + y })),
+    kind, normal,
+  };
+});
+// 流れの中心線からの距離（流れの区間の外なら大きな値）
+function streamDist(s, x, y) {
+  const t = ((x - s.x0) * s.dx + (y - s.y0) * s.dy);
+  if (t < 0 || t > s.len) return 1e9;
+  const px = s.x0 + s.dx * t, py = s.y0 + s.dy * t;
+  return Math.hypot(x - px, y - py);
+}
 
 // ---------------------------------------------------------------------
 //  画面
 // ---------------------------------------------------------------------
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
-let sw = 0, sh = 0, dpr = 1, scale = 1, viewH = 600;
+let sw = 0, sh = 0, dpr = 1, scale = 1;
 function resize() {
-  // 大きさが0の間（隠れた画面、読み込み途中のアプリ内ブラウザなど）は計算しない。
-  // 0で割ると壊れた値になり、カメラ B がずれたまま戻らなくなるため。大きさが決まったら frame() がやり直す
+  // 大きさが0の間（隠れた画面、読み込み途中のアプリ内ブラウザなど）は計算しない
   if (!(window.innerWidth > 0 && window.innerHeight > 0)) return;
   dpr = Math.min(2, window.devicePixelRatio || 1);
   sw = window.innerWidth; sh = window.innerHeight;
   canvas.width = Math.round(sw * dpr); canvas.height = Math.round(sh * dpr);
   canvas.style.width = sw + 'px'; canvas.style.height = sh + 'px';
-  const needW = W + C.FRAME * 2 + 16;
-  const needH = H + C.VIEW_MARGIN * 2;
-  scale = Math.min(sw / needW, sh / needH);  // A と B で同じ大きさに映す
-  viewH = sh / scale;                         // 画面に映る世界の高さ
-  // まだ動き出す前なら、B のカメラを新しい大きさの始まりの位置に合わせ直す
-  if (G && cam.mode === 'b' && G.phase === 'stuck') cam.y = cam.s1 = camBounds()[0];
+  scale = Math.min(sw / (W + C.FRAME * 2 + 16), sh / (H + C.VIEW_MARGIN * 2)); // ガラス1枚が画面に入る大きさ
+}
+const makeCanvas = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+let sceneCanvas = [], fogCanvas = [];
+function buildCanvases() {
+  // 場面の絵（向こうの部屋）は、はじめに1回だけ描いておく
+  sceneCanvas = PANES.map(P => {
+    const c = makeCanvas(Math.round(W * C.SCENE_RES), Math.round(H * C.SCENE_RES));
+    const g = c.getContext('2d');
+    g.setTransform(C.SCENE_RES, 0, 0, C.SCENE_RES, 0, 0);
+    drawScene(g, P.scene);
+    return c;
+  });
+  // くもりの絵（1回ごとに描き直す。雫が通った所を消していく）
+  fogCanvas = PANES.map(() => makeCanvas(Math.round(W * C.FOG_RES), Math.round(H * C.FOG_RES)));
 }
 
 // ---------------------------------------------------------------------
 //  状態
 // ---------------------------------------------------------------------
 let G = null;
-let testDir = null;      // 確かめ用：入力を外から与える
+let testTilt = null;     // 確かめ用：傾きを外から与える
 let simulating = false;  // 確かめ用：早送り中は音を鳴らさない
 let paused = false;      // 確かめ用：時間を止める
-const cam = { mode: C.CAMERA_DEFAULT, y: 0, s1: 0 };
-let pull = false;        // 近くの雫が寄ってくるか（M キー）
-{
-  const params = new URLSearchParams(location.search);
-  const q = (params.get('camera') || '').toLowerCase();
-  if (q === 'a' || q === 'b') cam.mode = q;
-  const pq = (params.get('pull') || '').toLowerCase();
-  if (pq === 'on') pull = true;
-  if (pq === 'off') pull = false;
-}
+const cam = { y: 0, zoom: 1 };
 
 function makeDrop(x, y, r) {
   return {
-    x, y, vx: 0, vy: 0, r, rT: r, // rT：混ざった後に向かう大きさ
-    ang: 0, angT: 0,        // 伸びる向き
-    el: 0, elv: 0, elT: 0,  // 伸び（+）・つぶれ（-）と、その揺れ
-    lean: 0,                // 動けない時、伸びた方へ寄って見える分
-    jx: 0, jv: 0,           // 止まった後、押した時のゆれ
-    resting: false, settle: null, support: null, slideDir: 0, state: '',
-    trail: [], beads: [], beadAcc: 0,
+    x, y, vx: 0, vy: 0, r,
+    ang: 0, angT: 0, el: 0, elv: 0, elT: 0,
+    lean: 0, jx: 0, jv: 0,
+    resting: false, state: '', props: [],
+    wx: x, wy: y, // くもりを消した最後の位置
   };
 }
 
 function newStats() {
   return {
     firstInput: null, friendAppear: null, contact: null, release: null,
-    stuckMaxShift: 0,   // 最初に動けない間に、雫の中心がずれた最大の幅（震えを除く）
-    stuckMaxReach: 0,   // 最初に動けない間に、伸びた先が届いた最大の幅
-    moveMaxVx: 0,
-    paneTimes: [],
-    friendSill: null, playerSill: null, bothStopped: null, fadeDone: null,
-    friendWaitTime: 0, gapMin: null, gapMax: null,
-    merges: 0,                              // 混ざった回数（助けの雫も入れる）
-    finalR: null,                           // 最後の大きさ（半径）
-    grains: { gap: 0, grime: 0, free: 0 },  // 触れた光る粒の数（種類ごと）
-    grimeStuckCount: 0, grimeStuckTime: 0,  // 汚れに引っかかった回数と、合計の秒数
-    grimePushed: 0,                         // 押し流した汚れの丸の数
+    merges: { oil: 0, honey: 0, sand: 0, water: 0 }, // 混ざった回数（種類ごと）
+    ejected: 0,                  // 押し出された・洗い流された性質の数
+    gooStuck: 0, gooStuckTime: 0, // ねばねばに捕まった回数と秒数
+    rocksBroken: 0,
+    paneEnter: [],               // それぞれのガラスに入った時刻と、その時の性質
+    revealed: PANES.map(() => false), revealT: PANES.map(() => null),
+    landT: null, zoomDone: null,
   };
 }
 
 function newGame() {
   const sx = W * C.START_X, sy = H * C.START_Y;
   G = {
-    t: 0, phase: 'stuck', prevDir: 0, lastDir: 1, firstInput: -1,
-    hold: { startX: sx, anchorX: sx, anchorY: sy, offX: 0, offVX: 0, strain: 0 }, // 最初の「動けない」
+    t: 0, phase: 'stuck', waiting: ctrl.needTap, firstInput: -1, lastDir: 1, tilt: 0,
+    hold: { startX: sx, anchorX: sx, anchorY: sy, offX: 0, offVX: 0, strain: 0, prevDir: 0 },
     player: makeDrop(sx, sy, C.STUCK_R),
     friend: makeDrop(-999, -999, C.FRIEND_R),
     side: Math.random() < 0.5 ? -1 : 1,
-    ph1: Math.random() * TAU,
     transferT: 0, contactX: 0, contactY: 0, glowT: -1,
-    releaseT: -1, releaseY: 0, leadX: 0, leadY: 0,
-    moveT0: 0, moveRamp: C.FALL_ACCEL_TIME,
+    releaseT: -1, moveT0: 0, moveRamp: C.FALL_ACCEL_TIME,
     playerPane: 0, endT: -1,
-    others: [],
-    spawns: SPAWNS0.map(s => Object.assign({ done: false }, s)),
-    grains: GRAINS0.map(g => Object.assign({ lit: false, litT: 0 }, g)),
-    grime: GRIME0.map(b => Object.assign({ state: 'stay', t: 0, vx: 0, vy: 0 }, b)),
-    gstuck: null,       // 汚れで動けない時の状態
-    pushing: false, squishT: -9,
-    grainCount: 0, ripples: [],
+    rocks: PANES.flatMap(P => P.rocks0.map(r => Object.assign({ hp: 1, alive: true, breakT: -1 }, r))),
+    cleared: PANES.map(() => new Uint8Array(NX * NY)),
+    patchClr: PANES.map(P => P.patches.map(() => 0)), // 濃い汚れごとに、きれいにしたます目の数
+    normClr: PANES.map(() => 0),                     // ふつうのくもりの、きれいにしたます目の数
+    others: [], spawned: PANES.map(() => false),
+    goo: null,       // ねばねばに捕まっている時の状態
+    ejects: [], ripples: [], crumbs: [], wipes: [],
+    erodeT: -9, inStream: false,
     stats: newStats(),
   };
   G.friend.state = 'hidden';
-  cam.y = cam.s1 = cam.mode === 'a' ? camTargetA() : camBounds()[0];
+  for (let k = 0; k < PANES.length; k++) {
+    paintFog(k);
+    // 水の流れの所は、もともときれい
+    const P = PANES[k];
+    for (let i = 0; i < NX * NY; i++) if (P.kind[i] === -2) G.cleared[k][i] = 1;
+  }
+  ctrl.base = null; // 始めた時の傾きを「まっすぐ」として覚え直す
+  ctrl.kv = 0;
+  cam.y = paneTop(0) + H / 2; cam.zoom = 1;
 }
 
 // ---------------------------------------------------------------------
-//  入力
+//  操作：スマホは傾き、PC は ← →。どちらも「傾き t（-1〜1）」にする
 // ---------------------------------------------------------------------
+const ctrl = {
+  mode: 'keys',      // 'keys'（PC）／'touch'（画面の左右を押す）／'tilt'（本体を傾ける）
+  needTap: false,    // 最初のタップを待っているか（傾きの許可と、音を鳴らせるようにするため）
+  kv: 0,             // キー・タッチの傾き（押している間、だんだん大きくなる）
+  dv: 0, sv: 0,      // 本体の傾き（そのまま／なめらかにしたもの）
+  base: null,        // 「まっすぐ」とみなす本体の角度
+  lastEvt: -1,
+};
+{
+  const want = (new URLSearchParams(location.search).get('ctrl') || '').toLowerCase();
+  const touchDevice = (navigator.maxTouchPoints || 0) > 0 || 'ontouchstart' in window;
+  if (want === 'touch') ctrl.mode = 'touch';
+  else if (want === 'tilt' || touchDevice) { ctrl.mode = 'tilt'; ctrl.needTap = true; }
+}
 const keys = { left: false, right: false };
 const pointers = new Map();
 let pointerSeq = 0;
@@ -385,25 +398,73 @@ function touchDir() {
   if (!best) return 0;
   return best.x < sw / 2 ? -1 : 1;
 }
-function inputDir() {
-  if (testDir !== null) return testDir;
-  const td = touchDir();
-  if (td) return td;
-  return (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+function holdDir() {
+  const kd = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+  if (kd) return kd;
+  return ctrl.mode === 'tilt' ? 0 : touchDir();
+}
+function updateCtrl(dt) {
+  const d = holdDir();
+  if (d) ctrl.kv = approach(ctrl.kv, d, C.KEY_RAMP * dt * (Math.sign(ctrl.kv) === -d ? 2 : 1));
+  else ctrl.kv = approach(ctrl.kv, 0, C.KEY_RETURN * dt);
+  ctrl.sv += (ctrl.dv - ctrl.sv) * (1 - Math.exp(-C.TILT_SMOOTH * dt));
+  if (testTilt !== null) G.tilt = testTilt;
+  else if (ctrl.mode === 'tilt' && !d && Math.abs(ctrl.kv) < 0.01) G.tilt = ctrl.sv;
+  else G.tilt = ctrl.kv;
+}
+function screenAngle() {
+  const so = window.screen && window.screen.orientation;
+  const a = so && typeof so.angle === 'number' ? so.angle : (typeof window.orientation === 'number' ? window.orientation : 0);
+  return ((a % 360) + 360) % 360;
+}
+function onOrientation(e) {
+  if (e.gamma == null || e.beta == null) return;
+  ctrl.lastEvt = performance.now();
+  const a = screenAngle();
+  // 画面の左右の傾き（前後の傾きは使わない）。横向きの時は beta が左右になる
+  const lat = a === 90 ? e.beta : a === 270 ? -e.beta : a === 180 ? -e.gamma : e.gamma;
+  if (ctrl.base === null) ctrl.base = lat;
+  let d = lat - ctrl.base;
+  if (d > 180) d -= 360; if (d < -180) d += 360;
+  d = Math.abs(d) < C.TILT_DEAD_DEG ? 0 : d - Math.sign(d) * C.TILT_DEAD_DEG;
+  ctrl.dv = clamp(d / (C.TILT_MAX_DEG - C.TILT_DEAD_DEG), -1, 1);
+}
+function startTilt() {
+  addEventListener('deviceorientation', onOrientation);
+  try { screen.orientation.lock('portrait').catch(() => {}); } catch (_) { /* 回転を止められない時はそのまま */ }
+  setTimeout(() => { if (ctrl.lastEvt < 0) toTouch(); }, C.TILT_EVENT_WAIT * 1000);
+}
+function toTouch() {
+  if (ctrl.mode === 'touch') return;
+  ctrl.mode = 'touch';
+  showIcon('touch');
+}
+// 最初のタップ：音を鳴らせるようにし、iPhone では傾きの許可を求めてから始める
+function firstTap() {
+  if (!ctrl.needTap) return;
+  ctrl.needTap = false;
+  Sound.init();
+  const DOE = window.DeviceOrientationEvent;
+  if (ctrl.mode === 'tilt') {
+    if (DOE && typeof DOE.requestPermission === 'function') {
+      DOE.requestPermission().then(s => { if (s === 'granted') startTilt(); else toTouch(); }).catch(() => toTouch());
+    } else if (DOE) startTilt();
+    else toTouch();
+  }
+  G.waiting = false;
 }
 function canRestartByTap() {
-  return G.phase === 'end' && G.t - G.endT - C.END_WAIT >= C.FADE_TIME;
+  return G.phase === 'end' && G.t - G.endT - C.END_WAIT >= C.ZOOM_TIME;
 }
 
 addEventListener('keydown', e => {
   Sound.init();
+  if (G.waiting) { ctrl.needTap = false; G.waiting = false; }
   switch (e.code) {
     case 'ArrowLeft': case 'KeyA': keys.left = true; e.preventDefault(); break;
     case 'ArrowRight': case 'KeyD': keys.right = true; e.preventDefault(); break;
     case 'KeyR': if (!e.repeat) newGame(); break;
-    case 'KeyC': if (!e.repeat) toggleCamera(); break;
     case 'KeyS': if (!e.repeat) toggleSound(); break;
-    case 'KeyM': if (!e.repeat) togglePull(); break;
   }
 });
 addEventListener('keyup', e => {
@@ -413,10 +474,10 @@ addEventListener('keyup', e => {
   }
 });
 addEventListener('blur', () => { keys.left = keys.right = false; pointers.clear(); });
-
 canvas.addEventListener('pointerdown', e => {
   e.preventDefault();
   Sound.init();
+  if (G.waiting) return; // 最初のタップは click で受ける（iPhone の許可のため）
   if (canRestartByTap()) { newGame(); return; }
   pointers.set(e.pointerId, { x: e.clientX, n: ++pointerSeq });
   try { canvas.setPointerCapture(e.pointerId); } catch (_) { /* 何もしない */ }
@@ -425,27 +486,19 @@ canvas.addEventListener('pointermove', e => { const v = pointers.get(e.pointerId
 for (const n of ['pointerup', 'pointercancel', 'lostpointercapture']) canvas.addEventListener(n, e => pointers.delete(e.pointerId));
 canvas.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
 canvas.addEventListener('contextmenu', e => e.preventDefault());
-// スマホでは、指を離した時でないと音が鳴らせないことがある
+canvas.addEventListener('click', firstTap);
+canvas.addEventListener('touchend', firstTap);
 for (const n of ['touchend', 'click']) addEventListener(n, () => Sound.init(), { passive: true });
-
-function toggleCamera() {
-  if (cam.mode === 'a') { cam.mode = 'b'; cam.s1 = cam.y; } else { cam.mode = 'a'; }
-  showIcon(cam.mode === 'a' ? 'camA' : 'camB');
-}
 function toggleSound() {
   Sound.setOn(!Sound.on);
   showIcon(Sound.on ? 'soundOn' : 'soundOff');
-}
-function togglePull() {
-  pull = !pull;
-  showIcon(pull ? 'pullOn' : 'pullOff');
 }
 
 // ---------------------------------------------------------------------
 //  音（その場で作る効果音だけ）
 // ---------------------------------------------------------------------
 const Sound = {
-  ac: null, master: null, slideGain: null, noise: null, on: true,
+  ac: null, master: null, slideGain: null, streamGain: null, noise: null, on: true,
   init() {
     if (this.ac) { if (this.ac.state === 'suspended' && !document.hidden) this.ac.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -455,16 +508,18 @@ const Sound = {
     this.master = ac.createGain();
     this.master.gain.value = this.on ? C.VOLUME : 0;
     this.master.connect(ac.destination);
-    // 流れている間の、小さな水の音（低めのざわざわ）
     const len = ac.sampleRate * 2, buf = ac.createBuffer(1, len, ac.sampleRate), data = buf.getChannelData(0);
     let last = 0;
     for (let i = 0; i < len; i++) { last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; data[i] = last * 3.5; }
-    const src = ac.createBufferSource(); src.buffer = buf; src.loop = true;
-    const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 700; bp.Q.value = 0.7;
-    this.slideGain = ac.createGain(); this.slideGain.gain.value = 0;
-    src.connect(bp); bp.connect(this.slideGain); this.slideGain.connect(this.master);
-    src.start();
-    // 汚れを押し流す音に使う、短いざらざら
+    const chain = (freq, q) => {
+      const src = ac.createBufferSource(); src.buffer = buf; src.loop = true;
+      const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = q;
+      const g = ac.createGain(); g.gain.value = 0;
+      src.connect(bp); bp.connect(g); g.connect(this.master); src.start();
+      return g;
+    };
+    this.slideGain = chain(700, 0.7);   // 流れている間の小さな水の音
+    this.streamGain = chain(1100, 0.5); // 水の流れの中にいる時の音
     const nlen = Math.floor(ac.sampleRate * 0.3);
     this.noise = ac.createBuffer(1, nlen, ac.sampleRate);
     const nd = this.noise.getChannelData(0);
@@ -474,11 +529,11 @@ const Sound = {
     this.on = v;
     if (this.master) this.master.gain.setTargetAtTime(v ? C.VOLUME : 0, this.ac.currentTime, 0.03);
   },
-  tone(f0, f1, dur, vol, delay = 0, attack = 0.006) {
+  tone(f0, f1, dur, vol, delay = 0, attack = 0.006, type = 'sine') {
     if (!this.ac || simulating) return;
     const ac = this.ac, t = ac.currentTime + delay;
     const o = ac.createOscillator(), g = ac.createGain();
-    o.type = 'sine';
+    o.type = type;
     o.frequency.setValueAtTime(f0, t);
     if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur * 0.6);
     g.gain.setValueAtTime(0.0001, t);
@@ -487,47 +542,51 @@ const Sound = {
     o.connect(g); g.connect(this.master);
     o.start(t); o.stop(t + dur + 0.05);
   },
+  burst(freq, dur, vol, delay = 0) { // ざらざらした短い音
+    if (!this.ac || !this.noise || simulating) return;
+    const ac = this.ac, t = ac.currentTime + delay;
+    const src = ac.createBufferSource(); src.buffer = this.noise;
+    const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = 0.9;
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(bp); bp.connect(g); g.connect(this.master);
+    src.start(t); src.stop(t + dur + 0.05);
+  },
+  // --- 最初の場面（試作1のまま）---
   tick(dir) { const f = 1500 + dir * 120 + Math.random() * 80; this.tone(f, f * 0.78, 0.07, 0.05); },
   appear() { this.tone(1318.5, 1318.5, 1.2, 0.035, 0, 0.08); this.tone(1975.5, 1975.5, 0.9, 0.015, 0.06, 0.08); },
   contact() {
-    this.tone(240, 820, 0.28, 0.16);                         // ぽわん（水がつながる音）
-    [880, 1108.73, 1318.51, 1760].forEach((f, i) => this.tone(f, f, 2.2, 0.055, 0.08 + i * 0.07, 0.01)); // 明るい和音
+    this.tone(240, 820, 0.28, 0.16);
+    [880, 1108.73, 1318.51, 1760].forEach((f, i) => this.tone(f, f, 2.2, 0.055, 0.08 + i * 0.07, 0.01));
   },
   release() { this.tone(700, 1500, 0.09, 0.06); },
-  bar() { this.tone(520, 380, 0.09, 0.035); },
-  land(isPlayer) { this.tone(380, 240, 0.3, isPlayer ? 0.08 : 0.05); },
-  // 光る粒：取るたびに音階を1つ上がる（取った順に小さなメロディになる）
-  grain(i) {
-    const steps = [0, 2, 4, 7, 9];
-    const s = Math.min(24, steps[i % 5] + 12 * Math.floor(i / 5));
-    const f = 523.25 * Math.pow(2, s / 12);
-    this.tone(f, f, 1.1, 0.06, 0, 0.004);
-    this.tone(f * 2, f * 2, 0.5, 0.018, 0, 0.004);
+  bar() { this.tone(520, 380, 0.09, 0.03); },
+  land() { this.tone(380, 240, 0.3, 0.08); },
+  // --- 混ざった時：性質ごとに違う音 ---
+  merge(kind) {
+    if (kind === 'oil') { this.tone(500, 1400, 0.22, 0.09); this.tone(750, 2100, 0.16, 0.04, 0.03); }       // ぬるん
+    else if (kind === 'honey') { this.tone(230, 160, 0.4, 0.13, 0, 0.03); this.tone(460, 330, 0.3, 0.04, 0, 0.03); } // とろっ
+    else if (kind === 'sand') { this.burst(2400, 0.16, 0.12); this.tone(150, 90, 0.18, 0.1); }            // ざらっ
+    else { this.tone(1300, 1900, 0.09, 0.08); this.tone(900, 1500, 0.12, 0.05, 0.05); }                    // ぴちょん
   },
-  // 混ざる：ぽちゃん。大きくなるほど低い
-  merge(r) {
-    const f0 = 560 * C.MOVE_R / r;
-    this.tone(f0, f0 * 0.55, 0.24, 0.13);
-    this.tone(f0 * 2.2, f0 * 1.3, 0.09, 0.04);
+  eject() { this.tone(720, 330, 0.16, 0.07, 0.08); },   // ぽろっ（押し出された）
+  stick() { this.tone(200, 120, 0.2, 0.09); this.tone(90, 70, 0.25, 0.06); }, // ぺたっ（捕まった）
+  slip() { this.tone(300, 620, 0.2, 0.05); },          // ぬるっ（ねばねばを抜けた）
+  erode() { this.burst(1800 + Math.random() * 800, 0.06, 0.035); },
+  crack() { this.burst(900, 0.25, 0.13); this.tone(110, 60, 0.28, 0.1); },
+  // 場面が見えた：和音が駆け上がる、はっきりしたご褒美
+  reveal() {
+    [523.25, 659.25, 783.99, 987.77, 1318.51, 1567.98].forEach((f, i) => this.tone(f, f, 1.8, 0.07, i * 0.07, 0.01));
+    this.tone(261.63, 261.63, 2.2, 0.06, 0, 0.02);
+    this.tone(2093, 2093, 1.2, 0.02, 0.45, 0.02, 'triangle');
   },
-  // 汚れに引っかかる：ぺたっ
-  stick() { this.tone(200, 120, 0.2, 0.09); this.tone(90, 70, 0.25, 0.06); },
-  // 汚れを押し流す：ざっ
-  squish() {
-    if (!this.ac || !this.noise || simulating) return;
-    const ac = this.ac, t = ac.currentTime;
-    const src = ac.createBufferSource(); src.buffer = this.noise;
-    const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900;
-    const g = ac.createGain();
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.06, t + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
-    src.connect(lp); lp.connect(g); g.connect(this.master);
-    src.start(t); src.stop(t + 0.2);
-  },
-  slide(level) {
+  slide(level, stream) {
     if (!this.slideGain || simulating) return;
-    this.slideGain.gain.setTargetAtTime(level * C.SLIDE_VOLUME, this.ac.currentTime, 0.12);
+    const t = this.ac.currentTime;
+    this.slideGain.gain.setTargetAtTime(level * C.SLIDE_VOLUME, t, 0.12);
+    this.streamGain.gain.setTargetAtTime(stream ? C.STREAM_VOLUME : 0, t, 0.1);
   },
 };
 document.addEventListener('visibilitychange', () => {
@@ -537,429 +596,401 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // ---------------------------------------------------------------------
+//  性質
+// ---------------------------------------------------------------------
+const stateKey = props => props.slice().sort().join('+');
+const stateOf = props => STATES[stateKey(props)];
+
+// 混ざる：性質が入る。2つを超えたら一番古いものが押し出される。水は古い方を1つ洗い流す
+function addProp(kind) {
+  const p = G.player;
+  let out = null;
+  if (kind === 'water') { if (p.props.length) out = p.props.shift(); }
+  else { p.props.push(kind); if (p.props.length > 2) out = p.props.shift(); }
+  G.stats.merges[kind]++;
+  Sound.merge(kind);
+  if (out) {
+    G.stats.ejected++;
+    // 失った性質は、その色の小さな雫になって飛んでいく
+    const side = G.tilt > 0.1 ? -1 : G.tilt < -0.1 ? 1 : (Math.random() < 0.5 ? -1 : 1);
+    G.ejects.push({ kind: out, x: p.x + side * p.r, y: p.y, vx: side * 90, vy: -70, t: 0 });
+    Sound.eject();
+  }
+}
+
+// ---------------------------------------------------------------------
 //  動き
 // ---------------------------------------------------------------------
 function step(dt) {
   update(dt);
-  updateCamera(dt);
+  updateCamera();
 }
 
 function update(dt) {
+  if (G.waiting) return; // 最初のタップ待ち
   G.t += dt;
-  const p = G.player, f = G.friend, st = G.stats;
-  const dir = inputDir();
-  const pressed = dir !== 0 && dir !== G.prevDir;
-  G.prevDir = dir;
-  if (dir !== 0) {
-    G.lastDir = dir;
+  updateCtrl(dt);
+  const p = G.player, f = G.friend, st = G.stats, t = G.tilt;
+  if (Math.abs(t) > 0.12) {
+    G.lastDir = Math.sign(t);
     if (G.firstInput < 0) { G.firstInput = G.t; st.firstInput = G.t; }
   }
 
-  // 親友が現れる時刻（一度は「動けない」を味わってから）
   if (f.state === 'hidden') {
     let due = G.firstInput < 0 ? C.FRIEND_DELAY_MAX : Math.max(C.FRIEND_DELAY, G.firstInput + C.FRIEND_AFTER_INPUT);
     due = Math.min(due, C.FRIEND_DELAY_MAX);
     if (G.t >= due) spawnFriend();
   }
 
-  if (G.phase === 'stuck' || G.phase === 'transfer') updateStuck(dt, dir, pressed);
-  else updateFree(dt, dir, pressed);
+  if (G.phase === 'stuck' || G.phase === 'transfer') updateStuck(dt, t);
+  else updateFree(dt, t);
 
   if (f.state === 'approach') updateApproach(dt);
   else if (f.state === 'touch') updateTransfer(dt);
-  else if (f.state === 'lead') updateLead(dt);
-  else if (f.state === 'rest') updateRest(f, dt, 0, false);
+  else if (f.state === 'leave') updateLeave(dt);
 
   if (G.phase === 'move' || G.phase === 'end') {
-    spawnOthers();
     updateOthers(dt);
-    updateGrime(dt);
-    // 混ざった後の大きさへ、なめらかに近づく
-    p.r += (p.rT - p.r) * (1 - Math.exp(-14 * dt));
+    updateEffects(dt);
   }
-
   updateShape(p, dt);
   updateShape(f, dt);
   if (G.glowT >= 0) G.glowT += dt;
-  for (const r of G.ripples) r.t += dt;
-  G.ripples = G.ripples.filter(r => r.t < 0.6);
-
-  if (G.phase === 'move' && p.resting && f.resting) { G.phase = 'end'; G.endT = G.t; st.bothStopped = G.t; st.finalR = p.rT; }
-  if (G.phase === 'end' && st.fadeDone === null && G.t - G.endT - C.END_WAIT >= C.FADE_TIME) st.fadeDone = G.t;
+  if (G.phase === 'end' && st.zoomDone === null && G.t - G.endT - C.END_WAIT >= C.ZOOM_TIME) st.zoomDone = G.t;
 }
 
-// 動けない時の体：見えないばねで、元の位置に引き戻される（最初と、汚れに引っかかった時に使う）
-function updateHold(dt, dir, pressed, h) {
+// 動けない時の体：見えないばねで、元の位置に引き戻される（最初と、ねばねばに捕まった時）
+function updateHold(dt, t, h) {
   const p = G.player;
-  if (pressed) { h.offVX += dir * C.STUCK_KICK; Sound.tick(dir); }
-  if (dir) h.anchorX = clamp(h.anchorX + dir * C.STUCK_CREEP * dt, h.startX - C.STUCK_CREEP_MAX, h.startX + C.STUCK_CREEP_MAX);
-  const ax = dir * C.STUCK_PUSH - C.STICK_SPRING * h.offX - C.STICK_DAMP * h.offVX;
+  const dir = Math.abs(t) > 0.12 ? Math.sign(t) : 0;
+  if (dir && dir !== h.prevDir) { h.offVX += dir * C.STUCK_KICK; Sound.tick(dir); } // 傾け始めた瞬間のはずみと音
+  h.prevDir = dir;
+  if (dir) h.anchorX = clamp(h.anchorX + t * C.STUCK_CREEP * dt, h.startX - C.STUCK_CREEP_MAX, h.startX + C.STUCK_CREEP_MAX);
+  const ax = t * C.STUCK_PUSH - C.STICK_SPRING * h.offX - C.STICK_DAMP * h.offVX;
   h.offVX += ax * dt;
   h.offX += h.offVX * dt;
-  h.strain = approach(h.strain, dir ? 1 : 0, dt * (dir ? 10 : 3));
+  h.strain = approach(h.strain, Math.min(1, Math.abs(t) / 0.6), dt * (dir ? 10 : 3));
   const tw = G.t * TAU * C.TREMBLE_HZ;
   p.x = h.anchorX + h.offX + Math.sin(tw) * C.TREMBLE * h.strain;
   p.y = h.anchorY + Math.sin(tw * 1.37 + 1) * C.TREMBLE * 0.5 * h.strain;
   return tw;
 }
-// 動けない時の形：押した方へ伸びる。何もしない時は、少し縦に垂れて息をしているように
 function stuckShape(p, h, tw) {
-  p.ang = p.angT = 0; // 横向きに伸びる
+  p.ang = p.angT = 0;
   const pulse = 0.85 + 0.15 * Math.sin(G.t * 6.5) + 0.05 * Math.sin(tw * 0.7);
   const sag = -0.05 - 0.025 * Math.sin(G.t * 1.7);
   p.elT = h.strain * C.STRETCH_MAX * pulse + (1 - h.strain) * sag;
-  p.lean = G.lastDir * Math.max(0, p.el) * p.r * 0.9; // 後ろは張り付いたまま、前だけ伸びる
+  p.lean = G.lastDir * Math.max(0, p.el) * p.r * 0.9;
 }
-
-// 最初の「動けない」
-function updateStuck(dt, dir, pressed) {
-  const p = G.player, h = G.hold, st = G.stats;
-  const tw = updateHold(dt, dir, pressed, h);
+function updateStuck(dt, t) {
+  const p = G.player, h = G.hold;
+  const tw = updateHold(dt, t, h);
   if (G.phase === 'stuck') stuckShape(p, h, tw);
   else p.lean *= Math.exp(-8 * dt);
-  const shift = Math.abs(h.anchorX + h.offX - h.startX);
-  st.stuckMaxShift = Math.max(st.stuckMaxShift, shift);
-  st.stuckMaxReach = Math.max(st.stuckMaxReach, shift + Math.abs(p.lean) + Math.max(0, p.el) * p.r);
 }
 
-// 動ける時：重力で下へ。左右で寄せる。大きいほど速く、曲がりにくい
-function updateFree(dt, dir, pressed) {
-  const p = G.player, f = G.friend, st = G.stats;
-  if (p.resting) { updateRest(p, dt, dir, pressed); return; }
-  if (p.settle) { updateSettle(p, dt); return; }
-  if (G.gstuck) { updateGrimeStuck(dt, dir, pressed); return; }
+// 動ける時：傾けた方へ重力がずれて流れる。動き方は性質で決まる
+function updateFree(dt, t) {
+  const p = G.player, st = G.stats;
+  if (p.resting) { updateRest(p, dt, t); return; }
+  if (G.goo) { updateGooStuck(dt, t); return; }
+  const S = stateOf(p.props);
   p.lean *= Math.exp(-8 * dt);
   const ramp = smooth(clamp((G.t - G.moveT0) / G.moveRamp, 0, 1));
-  const steer = sizeSteer(p.r);
-  let tvx = dir * steer, resp = sizeResponse(p.r);
-  // 塊の上に乗っている時は、横へすべる（押した方へ。押さなければ塊ごとに決めた向きへ）
-  if (p.support) { tvx = (dir || p.support.dir) * Math.max(steer, C.SLIDE_SPEED); resp = Math.max(resp, 4); }
-  p.vx += (tvx - p.vx) * (1 - Math.exp(-resp * dt));
-  const side = Math.min(1, Math.abs(p.vx) / steer);
-  // 塊の上に乗っている間は下へ押さない（横へすべって、塊を乗り越えられるように）
-  let tvy = p.support ? 0 : sizeFall(p.r) * ramp * (1 - C.STEER_SLOW * side * side);
-  if (G.pushing) tvy *= C.GRIME_PUSH_SLOW;
-  p.vy += (tvy - p.vy) * (1 - Math.exp(-8 * dt));
+  const e = Math.sign(t) * Math.pow(Math.abs(t), S.curve);
+  const stopped = S.stop && Math.abs(t) < C.STOP_TILT;
+  let tvx = stopped ? 0 : e * S.side * C.PACE;
+  let tvy = stopped ? 0 : (S.fall + S.fallTilt * Math.abs(e)) * ramp * C.PACE;
+  let rx = stopped ? Math.max(S.sideResp, 9) : S.sideResp;   // 止まれる性質は、ぴたっと止まる
+  let ry = stopped ? Math.max(S.fallResp, 9) : S.fallResp;
+  // 蜜＋蜜：壁や岩にくっついている間は下へ進まない（離れる方へ傾ければ離れる）
+  if (S.wallStick && p.stick && t * p.stick > -0.15) { tvy = 0; ry = Math.max(ry, 9); }
+  // 水の流れ：入ると流される（蜜は耐える、油はもっと流される）
+  const flow = streamAt(p.x, p.y);
+  G.inStream = !!flow;
+  if (flow) {
+    const fs = C.STREAM_SPEED * S.stream * C.PACE;
+    tvx += flow.dx * fs; tvy += flow.dy * fs;
+    const grip = C.STREAM_GRIP * Math.min(1, S.stream * 2);
+    rx = Math.max(rx, grip); ry = Math.max(ry, grip);
+  }
+  if (p.inGoo) { tvx *= C.GOO_OIL_SLOW; tvy *= C.GOO_OIL_SLOW; }
+  // 詰まない：壊せない岩の角などで動けなくなったら、岩の上を越えて、ガラスの真ん中の方へ出てくる
+  if (p.escapeT > 0) {
+    p.escapeT -= dt; p.escapeTotal += dt;
+    tvx = p.escapeDir * 70; tvy = -35; rx = ry = 8;
+  }
+  p.vx += (tvx - p.vx) * (1 - Math.exp(-rx * dt));
+  p.vy += (tvy - p.vy) * (1 - Math.exp(-ry * dt));
+  const x0 = p.x, y0 = p.y;
   p.x += p.vx * dt;
   p.y += p.vy * dt;
-  let vxIntent = p.vx;
+  // 左右の枠
+  p.stick = 0;
   const minX = p.r + 1, maxX = W - p.r - 1;
   if (p.x < minX || p.x > maxX) {
-    if (p.slideDir && Math.sign(p.slideDir) === Math.sign(p.x - W / 2)) p.slideDir = -p.slideDir; // 枠に当たったら、すべる向きを変える
+    const side = p.x < minX ? -1 : 1;
     p.x = clamp(p.x, minX, maxX);
-    p.vx = 0;
-    if (dir) vxIntent = dir * steer * 0.6; // 枠に押し付けている時も、少し傾いて反応する
+    if (S.bounce && p.vx * side > 20) { p.vx = -p.vx * S.bounce; Sound.bar(); }  // 油＋油は跳ね返る
+    else if (p.vx * side > 0) p.vx = 0;
+    p.stick = side;
   }
-  collideLumps(p);
-  gapAssist(p, dir, dt);
-  touchGrime(p);
-  if (G.gstuck) return;
-  touchGrains(p);
-  // 先に着いて止まっている親友に触れたら、その横へすべり降りて並ぶ
-  if (f.resting && Math.hypot(p.x - f.x, p.y - f.y) < p.r + f.r + 2) { startSettle(p, f); addTrail(p); return; }
-  separate(p, f);
+  const blocker = collideRocks(p, S, dt, t);
+  if (p.escapeT > 0 && blocker && p.escapeTotal < 3) p.escapeT = Math.max(p.escapeT, 0.15); // 岩から離れるまで続ける
+  else if (blocker && !stopped && Math.hypot(p.x - x0, p.y - y0) < 4 * dt) { // 実際にほとんど動けていない
+    p.stallT = (p.stallT || 0) + dt;
+    if (p.stallT > C.ROCK_ESCAPE) {
+      p.stallT = 0; p.escapeT = 0.45; p.escapeTotal = 0;
+      p.escapeDir = p.x < W / 2 ? 1 : -1;
+    }
+  } else p.stallT = 0;
+  touchGoo(p, S);
+  if (G.goo) return;
+  clean(p);
   const pane = paneOf(p.y);
-  if (pane > G.playerPane) {
-    G.playerPane = pane;
-    st.paneTimes.push(+G.t.toFixed(2));
-    Sound.bar();
-    p.elv -= 1.5;
-  }
-  if (p.y + p.r >= SILL_Y) { p.y = SILL_Y - p.r; land(p, true); }
-  if (!p.resting) freeShape(p, vxIntent);
-  addTrail(p);
-  st.moveMaxVx = Math.max(st.moveMaxVx, Math.abs(p.vx));
+  if (pane > G.playerPane) enterPane(pane);
+  if (p.y + p.r >= SILL_Y) { p.y = SILL_Y - p.r; land(p); return; }
+  // 形：動いている時は動く向きに伸び、止まっている時は重力の向きにかたむく
+  const sp = Math.hypot(p.vx, p.vy);
+  if (sp > 18) p.angT = Math.atan2(p.vy, p.vx);
+  else p.angT = Math.PI / 2 - t * C.GRAVITY_SHOW_DEG * Math.PI / 180;
+  p.elT = 0.08 + 0.18 * Math.min(1, sp / 120);
 }
 
-// 塊：雫は通り抜けられない。上に乗ったら横へすべる
-//  ・まっすぐな上の面に乗った → その塊で決めた向きへ
-//  ・丸い端に乗った → 転がり落ちる向きへ（小さい雫は、すき間の近くならすき間へ入る）
-//  ・2つの塊の間にはさまった（大きくて、すき間に入れない）→ どちらかの塊の上へ
-//  ・一度すべり始めたら、塊から離れるまで同じ向き（行ったり来たりしない）
-function collideLumps(d) {
-  d.support = null;
-  const big = d.r >= C.GAP_PASS_R;
-  let hits = 0, sdir = 0, sx = 0, flatDir = 0, top = false;
-  for (const L of LUMPS) {
-    if (d.y + d.r < L.y - C.LUMP_R - 2 || d.y - d.r > L.y + C.LUMP_R + 2) continue;
-    const cx = clamp(d.x, L.x1, L.x2), cy = L.y;
-    let nx = d.x - cx, ny = d.y - cy;
-    const dist = Math.hypot(nx, ny), min = d.r + C.LUMP_R;
-    if (dist >= min + 1.5) continue; // 少しの余裕：上に乗って止まっている間も「乗っている」とみなす
+function enterPane(k) {
+  G.playerPane = k;
+  G.stats.paneEnter.push({ k, t: +G.t.toFixed(2), state: stateKey(G.player.props) || 'なし' });
+  Sound.bar();
+  G.player.elv -= 1.2;
+  spawnPaneDrops(k);
+}
+
+// 岩：まるい岩はよけて転がる。砂が入っていれば削る（油＋砂・砂＋砂は一瞬で砕く）
+function collideRocks(d, S, dt, t) {
+  let blocker = null; // 壊せずに当たっている岩
+  for (const R of G.rocks) {
+    if (!R.alive || Math.abs(R.y - d.y) > R.r + d.r + 4 || Math.abs(R.x - d.x) > R.r + d.r + 4) continue;
+    const rr = R.r * (0.45 + 0.55 * R.hp);
+    let nx = d.x - R.x, ny = d.y - R.y;
+    const dist = Math.hypot(nx, ny), min = rr + d.r;
+    if (dist >= min + 1) continue;
     if (dist < 1e-6) { nx = 0; ny = -1; } else { nx /= dist; ny /= dist; }
+    const canBreak = S.rock && S.rock >= R.hard;
+    if (canBreak && S.smash) { breakRock(R); continue; } // 砕いて、そのまま進む
+    if (canBreak) {
+      R.hp -= S.erode * dt; // 削る
+      if (G.t - G.erodeT > 0.11) { Sound.erode(); G.erodeT = G.t; G.crumbs.push({ x: d.x - nx * d.r, y: d.y - ny * d.r, vx: (Math.random() - 0.5) * 60, vy: -30, t: 0 }); }
+      if (R.hp <= 0) { breakRock(R); continue; }
+    }
     if (dist < min) { d.x += nx * (min - dist); d.y += ny * (min - dist); }
     const vn = d.vx * nx + d.vy * ny;
     if (vn < 0) { d.vx -= vn * nx; d.vy -= vn * ny; }
-    if (ny >= -0.2) continue; // 横や下から当たっただけ
-    hits++;
-    sdir += L.slide * clamp(min - dist + 1.5, 0.01, 10); // 深く当たっている塊の向きを重く見る
-    sx += cx;
-    if (ny < -0.8) {
-      const onEnd = d.x <= L.x1 || d.x >= L.x2;
-      if (!onEnd) { top = true; flatDir = L.slide; }
-      else if (big) { top = true; flatDir = Math.sign(nx) || L.slide; }
-      // 小さい雫が丸い端に乗った時は、形にまかせて転がす（すき間の近くなら、すき間へ）
+    if (!canBreak && ny < -0.2) blocker = R;
+    if (S.wallStick) d.stick = Math.sign(R.x - d.x) || 1;
+    // 止まれない雫が岩の上に乗ってしまったら、横へ転がり落ちる（壁ぎわでは壁から離れる方へ）
+    if (ny < -0.4 && !S.stop && Math.abs(t) < 0.2) {
+      let dir = Math.sign(d.x - R.x) || G.lastDir;
+      if (d.x < d.r + 6) dir = 1; else if (d.x > W - d.r - 6) dir = -1;
+      d.vx += dir * C.ROCK_NUDGE * 3 * dt;
     }
   }
-  if (!hits) { d.slideDir = 0; return; }
-  let dir = d.slideDir;
-  if (!dir) {
-    if (hits >= 2) {
-      dir = Math.abs(sdir) > 0.05 ? Math.sign(sdir) : 0;
-      if (!dir) dir = Math.sign(d.x - sx / hits) || G.lastDir;
-    } else if (top) dir = flatDir;
-    else return; // 肩に当たっただけなら、形にまかせる
-  }
-  d.slideDir = dir;
-  d.support = { dir };
+  return blocker;
+}
+function breakRock(R) {
+  R.alive = false; R.breakT = G.t;
+  G.stats.rocksBroken++;
+  Sound.crack();
+  for (let i = 0; i < 8; i++) G.crumbs.push({ x: R.x + (Math.random() - 0.5) * R.r, y: R.y + (Math.random() - 0.5) * R.r, vx: (Math.random() - 0.5) * 120, vy: -40 - Math.random() * 60, t: 0 });
 }
 
-// すき間の手伝い：小さい雫が、すき間のだいたい上に来たら、すき間へ吸い込まれる
-// （すき間を通るのを腕前の勝負にしないため。自分から離れようとしている時は手伝わない）
-function gapAssist(d, dir, dt) {
-  if (d.r >= C.GAP_PASS_R) return;
-  for (const g of GAPS) {
-    const dy = g.y - d.y;
-    if (dy < -C.LUMP_R || dy > d.r + C.LUMP_R + 24) continue;
-    const dx = g.x - d.x;
-    if (Math.abs(dx) > C.GAP_CAPTURE) continue;
-    if (dir && Math.abs(dx) > 1 && Math.sign(dir) !== Math.sign(dx)) continue;
-    d.x += dx * (1 - Math.exp(-12 * dt));
-    d.vx *= Math.exp(-10 * dt);
-    d.slideDir = 0; d.support = null;
-  }
+// 水の流れの中にいれば、流れの向きを返す
+function streamAt(x, y) {
+  const P = PANES[paneOf(y)];
+  for (const s of P.streams) if (streamDist(s, x, y) <= C.STREAM_HW) return s;
+  return null;
 }
 
-// 汚れ：小さいと引っかかる。大きいと押し流す
-function touchGrime(p) {
-  let hit = false, pushing = false;
-  for (const b of G.grime) {
-    if (b.state === 'gone') continue;
-    if (Math.abs(b.y - p.y) > 40 || Math.abs(b.x - p.x) > 40) continue;
-    const d = Math.hypot(b.x - p.x, b.y - p.y);
-    if (b.state === 'pushed') { if (b.t < 0.3 && d < p.r + b.r) pushing = true; continue; }
-    if (d >= p.r + b.r * 0.75) continue;
-    if (p.rT >= C.GRIME_PUSH_R) { pushGrime(b, p); pushing = true; }
-    else { hit = true; break; }
+// ねばねば：油が入っていれば抜ける。ほかは捕まって動けない
+function touchGoo(p, S) {
+  p.inGoo = false;
+  const P = PANES[paneOf(p.y)];
+  for (const b of P.goo) {
+    if (Math.abs(b.y - p.y) > 32 || Math.abs(b.x - p.x) > 32) continue;
+    if (Math.hypot(b.x - p.x, b.y - p.y) >= p.r + b.r * 0.7) continue;
+    if (S.goo) { if (!p.wasInGoo) Sound.slip(); p.inGoo = true; }
+    else { startGooStuck(); break; }
   }
-  G.pushing = pushing;
-  if (hit) startGrimeStuck();
+  p.wasInGoo = p.inGoo;
 }
-function pushGrime(b, p) {
-  b.state = 'pushed'; b.t = 0;
-  b.vx = p.vx * 0.5 + (b.x - p.x) * 1.5;
-  b.vy = p.vy * 0.7;
-  G.stats.grimePushed++;
-  if (G.t - G.squishT > 0.09) { Sound.squish(); G.squishT = G.t; }
-}
-function updateGrime(dt) {
-  for (const b of G.grime) {
-    if (b.state !== 'pushed') continue;
-    b.t += dt;
-    b.x += b.vx * dt; b.y += b.vy * dt;
-    b.vx *= Math.exp(-4 * dt); b.vy *= Math.exp(-4 * dt);
-    if (b.t > 0.6) b.state = 'gone';
-  }
-}
-function startGrimeStuck() {
+function startGooStuck() {
   const p = G.player;
-  G.gstuck = { t0: G.t, startX: p.x, anchorX: p.x, anchorY: p.y, offX: 0, offVX: 0, strain: 0, rescued: false };
-  p.vx = 0; p.vy = 0; p.support = null;
-  p.el = -p.el; p.elv = -p.elv; p.ang = p.angT = 0; // 縦の伸びを、同じ形の横向きに置き換える
-  p.elv += 3; // ぺたっと横に広がる
-  G.stats.grimeStuckCount++;
+  G.goo = { t0: G.t, startX: p.x, anchorX: p.x, anchorY: p.y, offX: 0, offVX: 0, strain: 0, prevDir: 0, rescued: false, freeAt: -1 };
+  p.vx = 0; p.vy = 0;
+  p.el = -p.el; p.elv = -p.elv; p.ang = p.angT = 0;
+  p.elv += 3;
+  G.stats.gooStuck++;
   Sound.stick();
 }
-// 汚れで動けない：最初と同じく、押すと伸びて震えるが進まない。少しあとに必ず助けの雫が来る
-function updateGrimeStuck(dt, dir, pressed) {
-  const p = G.player, h = G.gstuck;
-  const tw = updateHold(dt, dir, pressed, h);
+// 捕まっている間は、最初と同じく、傾けると伸びて震えるが進まない。少しあとに必ず油の雫が来る
+function updateGooStuck(dt, t) {
+  const p = G.player, h = G.goo;
+  const tw = updateHold(dt, t, h);
   stuckShape(p, h, tw);
-  if (!h.rescued && G.t - h.t0 >= C.GRIME_RESCUE_DELAY) { h.rescued = true; spawnRescue(); }
-  // 混ざって大きくなったら、汚れを押し流して抜ける
-  if (p.rT >= C.GRIME_PUSH_R && p.r >= C.GRIME_PUSH_R - 0.3) freeFromGrime();
-}
-function freeFromGrime() {
-  const p = G.player, h = G.gstuck;
-  G.gstuck = null;
-  G.stats.grimeStuckTime += G.t - h.t0;
-  p.x = h.anchorX + h.offX; p.y = h.anchorY;
-  p.vx = 0; p.vy = 0;
-  p.el = -p.el; p.elv = -p.elv; p.ang = p.angT = Math.PI / 2;
-  p.elv += 3.5; // ぐっと縦に伸びて、動き出す
-  G.moveT0 = G.t; G.moveRamp = C.GRIME_FREE_ACCEL;
-  Sound.release();
-}
-
-// 光る粒：触れると光って音が鳴り、光ったまま残る
-function touchGrains(p) {
-  for (const g of G.grains) {
-    if (g.lit || Math.abs(g.y - p.y) > p.r + 8) continue;
-    if (Math.hypot(g.x - p.x, g.y - p.y) < p.r + C.GRAIN_R + 1) {
-      g.lit = true; g.litT = G.t;
-      G.stats.grains[g.kind]++;
-      Sound.grain(G.grainCount++);
-    }
+  if (!h.rescued && G.t - h.t0 >= C.GOO_RESCUE_DELAY) {
+    h.rescued = true;
+    G.others.push(makeOther('oil', p.x, p.y - C.GOO_RESCUE_DIST, true));
+  }
+  if (h.freeAt < 0 && stateOf(p.props).goo) h.freeAt = G.t + C.MERGE_TIME;
+  if (h.freeAt > 0 && G.t >= h.freeAt) {
+    G.goo = null;
+    G.stats.gooStuckTime += G.t - h.t0;
+    p.x = h.anchorX + h.offX; p.y = h.anchorY; p.vx = 0; p.vy = 0;
+    p.el = -p.el; p.elv = -p.elv; p.ang = p.angT = Math.PI / 2; p.elv += 3.5;
+    G.moveT0 = G.t; G.moveRamp = 0.5;
+    p.wasInGoo = true;
+    Sound.slip();
   }
 }
 
+// くもりをきれいにする：ます目を数え、絵の方も消す
+function clean(d) {
+  if (Math.hypot(d.x - d.wx, d.y - d.wy) >= 1.5) {
+    const k = paneOf(d.y);
+    G.wipes.push({ k, x0: d.wx, y0: d.wy, x1: d.x, y1: d.y, w: d.r * 2 * C.CLEAN_W });
+    d.wx = d.x; d.wy = d.y;
+  }
+  const r = d.r * C.CLEAN_W;
+  const k = paneOf(d.y), P = PANES[k];
+  const ly = d.y - P.top;
+  if (ly < -r || ly > H + r || G.stats.revealed[k]) return;
+  const i0 = Math.max(0, Math.floor((d.x - r) / C.CELL)), i1 = Math.min(NX - 1, Math.floor((d.x + r) / C.CELL));
+  const j0 = Math.max(0, Math.floor((ly - r) / C.CELL)), j1 = Math.min(NY - 1, Math.floor((ly + r) / C.CELL));
+  const cl = G.cleared[k];
+  for (let j = j0; j <= j1; j++) {
+    for (let i = i0; i <= i1; i++) {
+      const idx = j * NX + i;
+      if (cl[idx]) continue;
+      const cx = (i + 0.5) * C.CELL, cy = (j + 0.5) * C.CELL;
+      if ((cx - d.x) ** 2 + (cy - ly) ** 2 > r * r) continue;
+      cl[idx] = 1;
+      const v = P.kind[idx];
+      if (v >= 0) G.patchClr[k][v]++; else G.normClr[k]++;
+    }
+  }
+  if (progress(k) >= 1) revealPane(k);
+}
+// 見えるまでの進み具合（1で見える）：どれか1つの濃い汚れ、または、ふつうのくもり全体
+function progress(k) {
+  const P = PANES[k];
+  let best = P.normal ? G.normClr[k] / P.normal / C.FOG_REVEAL : 0;
+  P.patches.forEach((pt, n) => { best = Math.max(best, G.patchClr[k][n] / pt.cells / C.PATCH_REVEAL); });
+  return Math.min(1, best);
+}
+function revealPane(k) {
+  if (G.stats.revealed[k]) return;
+  G.stats.revealed[k] = true;
+  G.stats.revealT[k] = +G.t.toFixed(2);
+  Sound.reveal();
+}
+
 // ---------------------------------------------------------------------
-//  ほかの雫
+//  ほかの雫（性質の雫）
 // ---------------------------------------------------------------------
-function makeOther(x, y, r, rescue) {
-  const o = makeDrop(x, y, r);
-  o.ang = o.angT = Math.PI / 2;
-  o.form = 0; o.state = 'flow'; o.rescue = rescue;
+function makeOther(kind, x, y, rescue) {
+  const o = makeDrop(x, y, C.OTHER_R);
+  o.kind = kind; o.form = 0; o.state = 'flow'; o.rescue = !!rescue;
+  o.ang = o.angT = Math.PI / 2; o.phase = Math.random();
   return o;
 }
-function spawnOthers() {
-  const p = G.player;
-  for (const s of G.spawns) {
-    if (s.done || p.y < s.y - C.OTHER_SPAWN_AHEAD) continue;
-    s.done = true;
-    G.others.push(makeOther(s.x, s.y, s.r, false));
-  }
-}
-// 助けの雫：混ざれば必ず汚れを押し流せる大きさにする
-function spawnRescue() {
-  const p = G.player;
-  const r = Math.max(10, Math.sqrt(Math.max(0, (C.GRIME_PUSH_R + 0.6) ** 2 - p.rT * p.rT)));
-  G.others.push(makeOther(p.x, p.y - C.GRIME_RESCUE_DIST, r, true));
+function spawnPaneDrops(k) {
+  if (G.spawned[k]) return;
+  G.spawned[k] = true;
+  for (const d of PANES[k].drops) G.others.push(makeOther(d.kind, d.x, d.y, false));
 }
 function updateOthers(dt) {
-  const p = G.player, f = G.friend;
-  const canMerge = G.phase === 'move' && !p.resting && !p.settle;
-  // 寄ってくるのは、いちばん近い1つだけ（2つにはさまれると、よけられなくなるため）
-  let pulled = null;
-  if (pull && G.phase === 'move') {
-    let best = 1e9;
-    for (const o of G.others) {
-      if (o.state !== 'flow' || o.rescue || o.resting || o.form < 1) continue;
-      const dx = p.x - o.x, dy = o.y - p.y;
-      if (Math.abs(dx) >= C.PULL_RANGE_X || dy <= -(o.r + p.r) || dy >= C.PULL_RANGE_Y) continue;
-      const d = Math.hypot(dx, dy);
-      if (d < best) { best = d; pulled = o; }
-    }
-  }
+  const p = G.player;
+  const canMerge = G.phase === 'move' && !p.resting;
   for (const o of G.others) {
-    if (o.state === 'merging') { updateMerge(o, dt); continue; }
+    if (o.state === 'merging') {
+      o.mt += dt;
+      const k = Math.min(1, o.mt / C.MERGE_TIME);
+      o.x = lerp(o.mx0, p.x, k * k); o.y = lerp(o.my0, p.y, k * k);
+      o.r = o.mr0 * (1 - smooth(k));
+      if (k >= 1) o.state = 'gone';
+      continue;
+    }
     if (o.state !== 'flow') continue;
     if (o.form < 1) o.form = Math.min(1, o.form + dt / C.OTHER_FORM_TIME);
-    if (o.form >= 1 && !o.resting) {
-      const tvy = o.support ? 0 : o.rescue ? C.GRIME_RESCUE_SPEED : C.OTHER_SPEED + C.OTHER_SPEED_PER_R * (o.r - 10);
-      o.vy += (tvy - o.vy) * (1 - Math.exp(-3 * dt));
-      if (o.rescue) o.vx = clamp((p.x - o.x) * 3, -80, 80);                 // 助けの雫は、まっすぐプレイヤーへ
-      else if (o.support) o.vx += (o.support.dir * C.SLIDE_SPEED * 0.7 - o.vx) * (1 - Math.exp(-4 * dt));
-      else if (o === pulled) pullOther(o, p, dt);
-      else o.vx *= Math.exp(-2 * dt);                                       // まっすぐ流れる（寄っていた勢いは、ゆっくり消える）
-      o.x += o.vx * dt;
-      o.y += o.vy * dt;
-      if (o.x < o.r + 1 || o.x > W - o.r - 1) {
-        if (o.slideDir && Math.sign(o.slideDir) === Math.sign(o.x - W / 2)) o.slideDir = -o.slideDir;
-        o.x = clamp(o.x, o.r + 1, W - o.r - 1);
-      }
-      collideLumps(o);
-      gapAssist(o, 0, dt);
-      pushAway(o, f);
-      if (o.y + o.r >= SILL_Y) {
-        o.y = SILL_Y - o.r; o.resting = true; o.vx = o.vy = 0;
-        o.ang = o.angT = Math.PI / 2; o.elv = -4; o.elT = -0.08;
-      } else freeShape(o, o.vx);
+    else if (o.rescue) { // 助けの油の雫は、まっすぐプレイヤーへ
+      o.vx = clamp((p.x - o.x) * 3, -90, 90);
+      o.vy = C.GOO_RESCUE_SPEED;
+      o.x += o.vx * dt; o.y += o.vy * dt;
+    } else { // ゆっくり流れて、岩・ねばねばの上や、ガラスの下の方で止まる
+      const P = PANES[paneOf(o.y)];
+      const ny = o.y + C.OTHER_SPEED * dt;
+      const blocked = G.rocks.some(R => R.alive && Math.hypot(R.x - o.x, R.y - ny) < R.r + o.r)
+        || P.goo.some(b => Math.hypot(b.x - o.x, b.y - ny) < b.r + o.r * 0.6)
+        || P.streams.some(s => streamDist(s, o.x, ny) < C.STREAM_HW + o.r)
+        || G.others.some(q => q !== o && q.state === 'flow' && q.y > o.y && Math.hypot(q.x - o.x, q.y - ny) < q.r + o.r);
+      if (!blocked && o.y < P.top + H - o.r - 6) o.y = ny;
     }
+    o.angT = Math.PI / 2; o.elT = 0.06;
     updateShape(o, dt);
     if (canMerge && Math.hypot(o.x - p.x, o.y - p.y) < o.r * easeOut(o.form) + p.r) beginMerge(o);
   }
-  G.others = G.others.filter(o => o.state !== 'gone' && o.y > p.y - 900);
+  G.others = G.others.filter(o => o.state !== 'gone');
 }
-// 寄ってくる（M）：近くの雫が、プレイヤーの方へゆっくり横に寄る
-function pullOther(o, p, dt) {
-  const dx = p.x - o.x;
-  o.vx += Math.sign(dx) * C.PULL_ACCEL * (1 - Math.abs(dx) / C.PULL_RANGE_X) * dt;
-  o.vx = clamp(o.vx, -C.PULL_MAX, C.PULL_MAX);
-}
-// 親友とほかの雫は混ざらない。ほかの雫の方をよける
-function pushAway(o, f) {
-  if (f.state !== 'lead' && f.state !== 'rest') return;
-  const dx = o.x - f.x, dy = o.y - f.y, d = Math.hypot(dx, dy), min = o.r + f.r + 0.5;
-  if (d >= min || d < 1e-6) return;
-  o.x += dx / d * (min - d); o.y += dy / d * (min - d);
-}
-// 混ざる：触れると、間がつながって一つになる
 function beginMerge(o) {
   const p = G.player;
   o.state = 'merging'; o.mt = 0; o.mx0 = o.x; o.my0 = o.y; o.mr0 = o.r * easeOut(o.form);
-  p.rT = Math.sqrt(p.rT * p.rT + o.mr0 * o.mr0); // 水の量（半径の2乗の合計）を保つ
-  o.shift = o.mr0 * o.mr0 / (p.rT * p.rT);        // プレイヤーが相手の方へ寄る割合
-  p.elv -= 2.5;                                    // ぷるん
-  G.ripples.push({ x: (p.x + o.x) / 2, y: (p.y + o.y) / 2, t: 0, r0: p.r });
-  G.stats.merges++;
-  Sound.merge(p.rT);
+  addProp(o.kind); // 色も動き方も、この瞬間に変わる
+  p.elv -= 2.5;
+  G.ripples.push({ x: (p.x + o.x) / 2, y: (p.y + o.y) / 2, t: 0, r0: p.r, kind: o.kind });
 }
-function updateMerge(o, dt) {
-  const p = G.player;
-  const k0 = Math.min(1, o.mt / C.MERGE_TIME);
-  o.mt += dt;
-  const k = Math.min(1, o.mt / C.MERGE_TIME);
-  if (!G.gstuck) p.x += (o.mx0 - p.x) * o.shift * (k - k0);
-  o.x = lerp(o.mx0, p.x, k * k);
-  o.y = lerp(o.my0, p.y, k * k);
-  o.r = o.mr0 * (1 - smooth(k));
-  if (k >= 1) o.state = 'gone';
+function updateEffects(dt) {
+  for (const e of G.ejects) { e.t += dt; e.vy += 260 * dt; e.x += e.vx * dt; e.y += e.vy * dt; e.vx *= Math.exp(-1.5 * dt); }
+  G.ejects = G.ejects.filter(e => e.t < 1.3);
+  for (const r of G.ripples) r.t += dt;
+  G.ripples = G.ripples.filter(r => r.t < 0.6);
+  for (const c of G.crumbs) { c.t += dt; c.vy += 400 * dt; c.x += c.vx * dt; c.y += c.vy * dt; }
+  G.crumbs = G.crumbs.filter(c => c.t < 0.8);
 }
 
-// 止まった後：押すと少し揺れる（反応は必ず返す）
-function updateRest(d, dt, dir, pressed) {
-  if (pressed) { d.jv += dir * C.STUCK_KICK * 0.7; Sound.tick(dir); }
-  const ax = dir * C.STUCK_PUSH * 0.6 - C.STICK_SPRING * d.jx - C.STICK_DAMP * d.jv;
+// 止まった後：傾けると少し揺れる（反応は必ず返す）
+function updateRest(d, dt, t) {
+  const ax = t * C.STUCK_PUSH * 0.6 - C.STICK_SPRING * d.jx - C.STICK_DAMP * d.jv;
   d.jv += ax * dt;
   d.jx += d.jv * dt;
   d.angT = Math.PI / 2;
-  d.elT = -0.08 + (dir ? 0.04 * Math.sin(G.t * TAU * C.TREMBLE_HZ) : 0);
+  d.elT = -0.08;
   d.lean = 0;
 }
-
-function startSettle(p, f) {
-  let side = p.x >= f.x ? 1 : -1;
-  let tx = f.x + side * (p.r + f.r + 0.5);
-  if (tx < p.r + 1 || tx > W - p.r - 1) { side = -side; tx = f.x + side * (p.r + f.r + 0.5); }
-  p.settle = { t: 0, x0: p.x, y0: p.y, x1: tx, y1: SILL_Y - p.r };
-}
-function updateSettle(p, dt) {
-  const s = p.settle;
-  s.t = Math.min(1, s.t + dt / 0.4);
-  const k = smooth(s.t), ox = p.x, oy = p.y;
-  p.x = lerp(s.x0, s.x1, k);
-  p.y = lerp(s.y0, s.y1, k);
-  p.vx = (p.x - ox) / dt; p.vy = (p.y - oy) / dt;
-  freeShape(p, p.vx);
-  addTrail(p);
-  if (s.t >= 1) { p.settle = null; land(p, true); }
-}
-
-function land(d, isPlayer) {
+function land(d) {
   d.resting = true;
   d.vx = 0; d.vy = 0;
   d.ang = d.angT = Math.PI / 2;
-  d.elv = -6;     // ぺたっとつぶれて、揺れ戻る
+  d.elv = -6;
   d.elT = -0.08;
-  if (isPlayer) G.stats.playerSill = G.t;
-  else { d.state = 'rest'; G.stats.friendSill = G.t; }
-  Sound.land(isPlayer);
+  G.phase = 'end'; G.endT = G.t;
+  G.stats.landT = +G.t.toFixed(2);
+  Sound.land();
 }
 
+// ---------------------------------------------------------------------
+//  親友（試作1のまま。動けたあとは、先へ流れて見えなくなる）
+// ---------------------------------------------------------------------
 function spawnFriend() {
   const f = G.friend, p = G.player;
   f.state = 'approach';
   f.r = C.FRIEND_R;
   f.x = clamp(p.x + G.side * 70, f.r + 10, W - f.r - 10);
-  f.y = -f.r - 2; // 上の枠の下から出てくる
+  f.y = -f.r - 2;
+  f.wx = f.x; f.wy = f.y;
   f.vx = 0; f.vy = 0;
   f.ang = f.angT = Math.PI / 2;
   G.stats.friendAppear = G.t;
   Sound.appear();
 }
-
-// 親友が、プレイヤーの斜め上へ近づいてくる
 function updateApproach(dt) {
   const f = G.friend, p = G.player, h = G.hold;
   f.vy = Math.min(C.FRIEND_APPROACH_SPEED, f.vy + C.FRIEND_APPROACH_SPEED * 2 * dt);
@@ -970,10 +1001,9 @@ function updateApproach(dt) {
   f.x += (tx - f.x) * (1 - Math.exp(-2.2 * dt));
   f.vx = (f.x - ox) / dt;
   freeShape(f, f.vx);
-  addTrail(f);
+  if (f.y > 0) clean(f);
   if (Math.hypot(f.x - baseX, f.y - h.anchorY) <= p.r + f.r) beginTransfer();
 }
-
 function beginTransfer() {
   const f = G.friend, p = G.player;
   G.phase = 'transfer';
@@ -981,7 +1011,6 @@ function beginTransfer() {
   G.transferT = 0;
   G.contactX = f.x; G.contactY = f.y;
   G.glowT = 0;
-  // 横向きの伸びを、同じ形の縦向きに置き換えてから、ぎゅっとつぶす
   p.el = -p.el; p.elv = -p.elv;
   p.ang = p.angT = Math.PI / 2;
   p.elT = -0.2;
@@ -990,8 +1019,6 @@ function beginTransfer() {
   G.stats.contact = G.t;
   Sound.contact();
 }
-
-// 水が移る：プレイヤーは大きく、親友は少し小さく。親友は横をすべって下へ
 function updateTransfer(dt) {
   const f = G.friend, p = G.player, h = G.hold;
   G.transferT += dt;
@@ -1005,141 +1032,60 @@ function updateTransfer(dt) {
   f.y = lerp(G.contactY, h.anchorY + (p.r + f.r) * 0.1, e);
   f.vx = (f.x - ox) / dt; f.vy = (f.y - oy) / dt;
   f.angT = Math.PI / 2; f.elT = -0.08;
-  addTrail(f);
+  clean(f);
   if (k >= 1) release();
 }
-
 function release() {
   const p = G.player, f = G.friend, h = G.hold;
   G.phase = 'move';
   G.releaseT = G.t;
   G.moveT0 = G.t; G.moveRamp = C.FALL_ACCEL_TIME;
-  p.r = p.rT = C.MOVE_R; f.r = f.rT = C.FRIEND_R_AFTER;
+  p.r = C.MOVE_R; f.r = C.FRIEND_R_AFTER;
   p.x = h.anchorX + h.offX; p.y = h.anchorY;
+  p.wx = p.x; p.wy = p.y;
   p.vx = 0; p.vy = 0;
-  p.elT = 0; p.elv += 4.5; // ぐっと縦に伸びて、動き出す
-  f.state = 'lead';
-  f.vy = C.FALL_SPEED * 0.5;
-  G.leadX = f.x; G.leadY = f.y;
-  G.releaseY = p.y;
+  p.elT = 0; p.elv += 4.5;
+  f.state = 'leave';
+  f.vy = 60;
   G.stats.release = G.t;
+  G.stats.paneEnter.push({ k: 0, t: +G.t.toFixed(2), state: 'なし' });
   Sound.release();
 }
-
-// 親友の進む道：場面ごとの「何もない通り道」をなめらかにつなぐ
-function friendPathX(y) {
-  let x;
-  if (y <= LANE[0][0]) x = LANE[0][1];
-  else if (y >= LANE[LANE.length - 1][0]) x = LANE[LANE.length - 1][1];
-  else {
-    let i = 0;
-    while (LANE[i + 1][0] < y) i++;
-    const [y0, x0] = LANE[i], [y1, x1] = LANE[i + 1];
-    x = lerp(x0, x1, smooth((y - y0) / (y1 - y0)));
-  }
-  return x + C.FRIEND_SWAY * Math.sin(TAU * y / C.FRIEND_SWAY_LEN + G.ph1);
-}
-
-// 親友：少し先を行く。離れると遅く、離れすぎると待つ。近づくと少し速く
-function updateLead(dt) {
-  const f = G.friend, p = G.player, st = G.stats;
-  const gap = f.y - p.y;
-  let mul;
-  if (gap > C.FRIEND_WAIT_GAP) mul = 0.03;
-  else mul = clamp(1 + (C.FRIEND_GAP - gap) / C.FRIEND_GAP * 0.8, 0.15, C.FRIEND_MAX_SPEED);
-  f.vy += (sizeFall(p.r) * mul - f.vy) * (1 - Math.exp(-2.2 * dt));
+// 親友は、先へ流れていって見えなくなる（ついて行く遊びは、今回はなし）
+function updateLeave(dt) {
+  const f = G.friend;
+  f.vy = Math.min(C.FRIEND_LEAVE_SPEED, f.vy + 160 * dt);
+  f.vx *= Math.exp(-3 * dt);
+  f.x += f.vx * dt;
   f.y += f.vy * dt;
-  const ox = f.x;
-  const b = smooth(clamp((f.y - G.leadY) / 220, 0, 1));
-  f.x = lerp(G.leadX, friendPathX(f.y), b);
-  f.vx = (f.x - ox) / dt;
-  if (f.y + f.r >= SILL_Y) { f.y = SILL_Y - f.r; land(f, false); }
-  if (!f.resting) freeShape(f, f.vx);
-  addTrail(f);
-  if (G.t - G.releaseT > 2 && !p.resting) {
-    st.gapMin = st.gapMin === null ? gap : Math.min(st.gapMin, gap);
-    st.gapMax = st.gapMax === null ? gap : Math.max(st.gapMax, gap);
-    if (f.vy < C.FALL_SPEED * 0.3) st.friendWaitTime += dt;
-  }
+  freeShape(f, f.vx);
+  if (f.y < paneTop(0) + H) clean(f);
+  if (f.y > paneTop(1) + 40) f.state = 'gone';
 }
 
-// プレイヤーと親友は重ならない（合体は作らない）。そっと押し分ける
-function separate(p, f) {
-  if (f.state !== 'lead' && f.state !== 'rest') return;
-  const dx = p.x - f.x, dy = p.y - f.y;
-  const d = Math.hypot(dx, dy), min = p.r + f.r + 0.5;
-  if (d >= min) return;
-  let nx = d > 0.001 ? dx / d : G.side, ny = d > 0.001 ? dy / d : 0;
-  if (Math.abs(nx) < 0.35) { // 真上から乗った時は、横へすべり落ちる
-    nx = (nx >= 0 ? 1 : -1) * 0.35;
-    const l = Math.hypot(nx, ny); nx /= l; ny /= l;
-  }
-  const push = min - d;
-  p.x = clamp(p.x + nx * push, p.r + 1, W - p.r - 1);
-  p.y += ny * push;
-  const vn = p.vx * nx + p.vy * ny;
-  if (vn < 0) { p.vx -= vn * nx; p.vy -= vn * ny; }
-}
-
-// 動く向きに伸びる
 function freeShape(d, vxIntent) {
   const sp = Math.hypot(vxIntent, d.vy);
   if (sp > 3) d.angT = Math.atan2(d.vy, vxIntent);
-  d.elT = 0.22 * Math.min(1, sp / C.FALL_SPEED);
+  d.elT = 0.22 * Math.min(1, sp / 110);
 }
-
-// 形のばね（伸びたりつぶれたりして、揺れ戻る）
 function updateShape(d, dt) {
   d.ang += angDiff(d.ang, d.angT) * (1 - Math.exp(-10 * dt));
   d.elv += ((d.elT - d.el) * 170 - d.elv * 13) * dt;
   d.el = clamp(d.el + d.elv * dt, -0.5, 0.9);
 }
 
-// 跡：通った所に、うっすら線と小さな粒を残す
-function addTrail(d) {
-  const w = d.r * 2 * C.TRAIL_WIDTH;
-  let seg = d.trail[d.trail.length - 1];
-  if (!seg || Math.abs(seg.w - w) > 3) { // 細かく引き直すと、重なった所が濃いこぶになる
-    const pts = seg ? [seg.pts[seg.pts.length - 2], seg.pts[seg.pts.length - 1]] : [d.x, d.y];
-    seg = { w, pts };
-    d.trail.push(seg);
-  }
-  const lx = seg.pts[seg.pts.length - 2], ly = seg.pts[seg.pts.length - 1];
-  const dist = Math.hypot(d.x - lx, d.y - ly);
-  if (dist < 3) return;
-  seg.pts.push(d.x, d.y);
-  d.beadAcc += dist;
-  if (d.beadAcc > C.TRAIL_BEAD_EVERY * (0.6 + Math.random() * 0.8)) {
-    d.beadAcc = 0;
-    d.beads.push({ x: d.x + (Math.random() - 0.5) * w * 0.8, y: d.y - d.r * 0.8, r: 0.8 + Math.random() * 1.4 });
-  }
-}
-
 // ---------------------------------------------------------------------
-//  カメラ
+//  カメラ：ガラス1枚＝1画面。終わりに窓全体まで引く
 // ---------------------------------------------------------------------
-function camBounds() {
-  const lo = -C.VIEW_MARGIN + viewH / 2, hi = SILL_Y + C.VIEW_MARGIN - viewH / 2;
-  return hi < lo ? [(lo + hi) / 2, (lo + hi) / 2] : [lo, hi];
-}
-// A：プレイヤーのいるガラス1枚を映す
-function camTargetA() { return paneTop(G ? G.playerPane : 0) + H / 2; }
-// B：プレイヤーを上の方に置き、進む先（下）を広く見せる
-function camTargetB() {
-  const [lo, hi] = camBounds();
-  if (G.phase === 'stuck' || G.phase === 'transfer') return lo;
-  const p = G.player;
-  const lead = p.vy * 2 * C.CAM_B_SMOOTH; // なめらかにした分の遅れを、先回りで打ち消す
-  return clamp(p.y + (0.5 - C.CAM_B_PLAYER_POS) * viewH + lead, lo, hi);
-}
-function updateCamera(dt) {
-  if (cam.mode === 'a') { cam.y = cam.s1 = camTargetA(); return; }
-  // 念のため：位置が壊れた値になっていたら、今の目標から始め直す
-  if (!Number.isFinite(cam.y) || !Number.isFinite(cam.s1)) cam.y = cam.s1 = camTargetB();
-  // 2段のなめらかさ：急に動き出さず、行き過ぎもしない
-  const a = 1 - Math.exp(-dt / C.CAM_B_SMOOTH);
-  cam.s1 += (camTargetB() - cam.s1) * a;
-  cam.y += (cam.s1 - cam.y) * a;
+function zoomK() { return G.phase === 'end' ? smooth(clamp((G.t - G.endT - C.END_WAIT) / C.ZOOM_TIME, 0, 1)) : 0; }
+function updateCamera() {
+  const base = paneTop(G.playerPane) + H / 2;
+  const k = zoomK();
+  if (k <= 0) { cam.y = base; cam.zoom = 1; return; }
+  const allTop = -C.FRAME - C.VIEW_MARGIN * 0.5, allBot = SILL_Y + C.SILL + C.VIEW_MARGIN * 0.5;
+  const zAll = Math.min(sw / (W + C.FRAME * 2 + 24), sh / (allBot - allTop)) / scale;
+  cam.zoom = lerp(1, Math.min(1, zAll), k);
+  cam.y = lerp(base, (allTop + allBot) / 2, k);
 }
 
 // ---------------------------------------------------------------------
@@ -1147,11 +1093,73 @@ function updateCamera(dt) {
 // ---------------------------------------------------------------------
 const ui = { icon: '', iconT: -99 };
 function showIcon(kind) { ui.icon = kind; ui.iconT = performance.now() / 1000; }
-const toScreenY = y => (y - cam.y) * scale + sh / 2;
 
-function worldTransform() {
+// くもりを描く（1回ごと）：うすい白いくもりと、茶色く濃い汚れ
+function paintFog(k) {
+  const fc = fogCanvas[k], c = fc.getContext('2d'), P = PANES[k], R = C.FOG_RES;
+  const rnd = prng(101 + k * 7);
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.globalCompositeOperation = 'source-over';
+  c.clearRect(0, 0, fc.width, fc.height);
+  c.setTransform(R, 0, 0, R, 0, 0);
+  c.fillStyle = 'rgba(166,177,188,0.93)';
+  c.fillRect(0, 0, W, H);
+  for (let i = 0; i < 260; i++) { // むら
+    const x = rnd() * W, y = rnd() * H, r = 6 + rnd() * 28, light = rnd() < 0.5;
+    c.fillStyle = light ? `rgba(228,233,238,${0.05 + rnd() * 0.1})` : `rgba(150,158,168,${0.05 + rnd() * 0.1})`;
+    c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+  }
+  for (let i = 0; i < 420; i++) { // 細かい水滴
+    c.fillStyle = `rgba(242,246,250,${0.15 + rnd() * 0.2})`;
+    c.beginPath(); c.arc(rnd() * W, rnd() * H, 0.6 + rnd() * 1.6, 0, TAU); c.fill();
+  }
+  for (const pt of P.patches) { // 濃い汚れ
+    for (let i = 0; i < 70; i++) {
+      const a = rnd() * TAU, q = Math.sqrt(rnd()) * 0.92;
+      const x = pt.x + Math.cos(a) * pt.rx * q, y = pt.y + Math.sin(a) * pt.ry * q;
+      c.fillStyle = `rgba(${104 + rnd() * 20},${86 + rnd() * 14},${62 + rnd() * 12},0.5)`;
+      c.beginPath(); c.arc(x, y, 7 + rnd() * 13, 0, TAU); c.fill();
+    }
+    for (let i = 0; i < 40; i++) {
+      const a = rnd() * TAU, q = Math.sqrt(rnd());
+      c.fillStyle = `rgba(52,40,28,${0.3 + rnd() * 0.3})`;
+      c.beginPath(); c.arc(pt.x + Math.cos(a) * pt.rx * q, pt.y + Math.sin(a) * pt.ry * q, 0.8 + rnd() * 2.2, 0, TAU); c.fill();
+    }
+  }
+  // 水の流れの所は、もともときれい
+  c.globalCompositeOperation = 'destination-out';
+  c.lineCap = 'round';
+  for (const s of P.streams) {
+    c.lineWidth = C.STREAM_HW * 2;
+    c.beginPath(); c.moveTo(s.x0, s.y0 - P.top); c.lineTo(s.x1, s.y1 - P.top); c.stroke();
+  }
+  c.globalCompositeOperation = 'source-over';
+}
+// 雫が通った所のくもりを消す（描く時にまとめて）
+function flushWipes() {
+  if (!G.wipes.length) return;
+  for (const w of G.wipes) {
+    const P = PANES[w.k], c = fogCanvas[w.k].getContext('2d'), R = C.FOG_RES;
+    c.setTransform(R, 0, 0, R, 0, 0);
+    c.globalCompositeOperation = 'destination-out';
+    c.lineCap = 'round';
+    c.strokeStyle = 'rgba(0,0,0,0.45)'; c.lineWidth = w.w * 1.3;
+    c.beginPath(); c.moveTo(w.x0, w.y0 - P.top); c.lineTo(w.x1, w.y1 - P.top); c.stroke();
+    c.strokeStyle = 'rgba(0,0,0,1)'; c.lineWidth = w.w;
+    c.beginPath(); c.moveTo(w.x0, w.y0 - P.top); c.lineTo(w.x1, w.y1 - P.top); c.stroke();
+    c.globalCompositeOperation = 'source-over';
+  }
+  G.wipes.length = 0;
+}
+function fogAlpha(k) {
+  const rt = G.stats.revealT[k];
+  if (rt !== null) return Math.max(0, 1 - (G.t - rt) / C.REVEAL_FADE);
+  return 1 - C.FOG_THIN * progress(k);
+}
+
+function worldTransform(total) {
   ctx.translate(sw / 2, sh / 2);
-  ctx.scale(scale, scale);
+  ctx.scale(total, total);
   ctx.translate(-W / 2, -cam.y);
 }
 
@@ -1159,17 +1167,22 @@ function draw() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = COL.wall;
   ctx.fillRect(0, 0, sw, sh);
-
+  flushWipes();
+  const total = scale * cam.zoom;
+  const zk = zoomK();
   ctx.save();
-  worldTransform();
-  const top = cam.y - viewH / 2 - 40, bot = cam.y + viewH / 2 + 40;
-  // ガラス
-  ctx.fillStyle = COL.glass;
-  for (let k = 0; k < C.PANE_COUNT; k++) {
-    const y0 = paneTop(k);
-    if (y0 > bot || y0 + H < top) continue;
-    ctx.fillRect(0, y0, W, H);
+  worldTransform(total);
+  const top = cam.y - sh / 2 / total - 40, bot = cam.y + sh / 2 / total + 40;
+  for (const P of PANES) {
+    if (P.top > bot || P.top + H < top) continue;
+    ctx.drawImage(sceneCanvas[P.k], 0, P.top, W, H);              // 向こうの部屋
+    ctx.fillStyle = 'rgba(30,45,62,0.12)'; ctx.fillRect(0, P.top, W, H); // ガラスの色
+    const fa = fogAlpha(P.k);
+    if (fa > 0.001) { ctx.globalAlpha = fa; ctx.drawImage(fogCanvas[P.k], 0, P.top, W, H); ctx.globalAlpha = 1; }
+    drawStreams(P);
   }
+  drawGoo(top, bot);
+  drawRocks(top, bot);
   // 桟と下の枠
   for (let k = 0; k < C.PANE_COUNT - 1; k++) {
     const y0 = paneTop(k) + H;
@@ -1179,168 +1192,175 @@ function draw() {
   }
   ctx.fillStyle = COL.frame; ctx.fillRect(-C.FRAME, SILL_Y, W + C.FRAME * 2, C.SILL);
   ctx.fillStyle = COL.frameEdge; ctx.fillRect(0, SILL_Y, W, 2.5);
-  // 汚れ
-  drawGrime(top, bot);
-  // 跡（ガラスの上だけ）
-  ctx.save();
-  ctx.clip(glassClip);
-  drawTrail(G.friend, C.TRAIL_ALPHA_FRIEND);
-  drawTrail(G.player, C.TRAIL_ALPHA_PLAYER);
-  ctx.restore();
-  // 光る粒と塊
-  drawGrains(top, bot);
-  drawLumps(top, bot);
-  // ほかの雫（混ざっている途中なら、つながりも）
+  // ほかの雫
   for (const o of G.others) {
     if (o.y < top - 30 || o.y > bot + 30) continue;
     if (o.state === 'merging') drawMergeBridge(o);
     const r = o.state === 'merging' ? o.r : o.r * easeOut(o.form);
-    if (r > 0.3) drawDrop(o, OTHER_ALPHA * (o.state === 'merging' ? 1 : o.form), r);
+    if (r > 0.3) drawDrop(o, o.state === 'merging' ? 1 : o.form, r, [o.kind], o.phase);
+  }
+  for (const e of G.ejects) drawDrop({ x: e.x, y: e.y, ang: Math.PI / 2, el: 0.1, lean: 0, jx: 0, resting: false }, 1 - e.t / 1.3, 6, [e.kind], 0.3);
+  for (const c of G.crumbs) {
+    ctx.fillStyle = `rgba(110,98,86,${1 - c.t / 0.8})`;
+    ctx.fillRect(c.x - 1.6, c.y - 1.6, 3.2, 3.2);
   }
   // 親友
   const f = G.friend;
-  if (f.state !== 'hidden') {
+  if (f.state !== 'hidden' && f.state !== 'gone') {
     if (f.state === 'touch') drawBridge();
-    drawDrop(f, FRIEND_ALPHA); // 自分と見分けやすいように、少しだけ薄く
+    drawDrop(f, FRIEND_ALPHA, f.r, []);
   }
-  // 上と左右の枠（親友は上の枠の下から出てくる）
+  // 上と左右の枠
   ctx.fillStyle = COL.frame;
   ctx.fillRect(-C.FRAME, -C.FRAME, W + C.FRAME * 2, C.FRAME);
   ctx.fillRect(-C.FRAME, 0, C.FRAME, SILL_Y);
   ctx.fillRect(W, 0, C.FRAME, SILL_Y);
+  // 場面が見えた瞬間の光
+  for (const P of PANES) {
+    const rt = G.stats.revealT[P.k];
+    if (rt === null) continue;
+    const age = G.t - rt;
+    if (age < 0.9) {
+      ctx.fillStyle = `rgba(255,248,225,${0.55 * (1 - age / 0.9) ** 2})`;
+      ctx.fillRect(0, P.top, W, H);
+    }
+    // 終わり：見えた場面は、ふちが明るく光る
+    if (zk > 0.6) {
+      ctx.strokeStyle = `rgba(255,226,150,${(zk - 0.6) / 0.4 * (0.55 + 0.25 * Math.sin(G.t * 3 + P.k))})`;
+      ctx.lineWidth = 6;
+      ctx.strokeRect(-3, P.top - 3, W + 6, H + 6);
+    }
+  }
   ctx.restore();
 
-  // A：今のガラスと、そのまわりの枠だけを見せる（ほかは壁の色で隠す）
-  if (cam.mode === 'a') {
+  // A：今のガラスと、そのまわりの枠だけを見せる（終わりに引く時は、全部見せる）
+  if (zk <= 0) {
     const k = G.playerPane;
-    const yTop = Math.floor(toScreenY(paneTop(k) - (k === 0 ? C.FRAME : C.BAR)));
-    const yBot = Math.ceil(toScreenY(paneTop(k) + H + (k === C.PANE_COUNT - 1 ? C.SILL : C.BAR)));
+    const toY = y => (y - cam.y) * total + sh / 2;
+    const yTop = Math.floor(toY(paneTop(k) - (k === 0 ? C.FRAME : C.BAR)));
+    const yBot = Math.ceil(toY(paneTop(k) + H + (k === C.PANE_COUNT - 1 ? C.SILL : C.BAR)));
     ctx.fillStyle = COL.wall;
     if (yTop > 0) ctx.fillRect(0, 0, sw, yTop);
     if (yBot < sh) ctx.fillRect(0, yBot, sw, sh - yBot);
   }
 
-  // 光とプレイヤー（いちばん手前）
   ctx.save();
-  worldTransform();
+  worldTransform(total);
   drawGlow();
   drawRipples();
-  drawDrop(G.player, 1);
+  drawDrop(G.player, 1, G.player.r, G.player.props, 0);
   ctx.restore();
 
-  // 終わり：ゆっくり暗く
-  if (G.phase === 'end') {
-    const ft = (G.t - G.endT - C.END_WAIT) / C.FADE_TIME;
-    if (ft > 0) {
-      ctx.fillStyle = `rgba(4,6,9,${smooth(clamp(ft, 0, 1))})`;
-      ctx.fillRect(0, 0, sw, sh);
-    }
-    if (ft >= 1) { // もう一度：小さな雫が、息をするように光る
-      const a = 0.22 + 0.16 * Math.sin(performance.now() / 1000 * 2.4);
-      ctx.fillStyle = `rgba(${COL.drop},${a})`;
-      ctx.beginPath(); ctx.arc(sw / 2, sh / 2, C.STUCK_R * scale, 0, TAU); ctx.fill();
-    }
+  if (canRestartByTap()) { // もう一度：小さな雫が、息をするように光る
+    const a = 0.25 + 0.18 * Math.sin(performance.now() / 1000 * 2.4);
+    ctx.fillStyle = `rgba(${COL.drop},${a})`;
+    ctx.beginPath(); ctx.arc(sw / 2, sh - 26, 7, 0, TAU); ctx.fill();
   }
+  if (G.waiting) drawStartOverlay();
   drawIcon();
 }
 
-function drawTrail(d, alpha) {
-  if (!d.trail.length) return;
-  ctx.strokeStyle = `rgba(${COL.drop},${alpha})`;
-  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  for (const seg of d.trail) {
-    const pts = seg.pts;
-    if (pts.length < 4) continue;
-    ctx.lineWidth = seg.w;
+function drawStreams(P) {
+  if (!P.streams.length) return;
+  const tm = G.t;
+  for (const s of P.streams) {
+    const nx = -s.dy, ny = s.dx;
+    ctx.fillStyle = 'rgba(150,200,235,0.16)';
     ctx.beginPath();
-    ctx.moveTo(pts[0], pts[1]);
-    for (let i = 2; i < pts.length; i += 2) ctx.lineTo(pts[i], pts[i + 1]);
-    ctx.stroke();
-  }
-  ctx.fillStyle = `rgba(${COL.drop},${Math.min(0.6, alpha * 1.8)})`;
-  ctx.beginPath();
-  for (const b of d.beads) { ctx.moveTo(b.x + b.r, b.y); ctx.arc(b.x, b.y, b.r, 0, TAU); }
-  ctx.fill();
-}
-
-// 汚れ：うすく濁った丸の集まりと、小さな黒い点
-function drawGrime(top, bot) {
-  for (const b of G.grime) {
-    if (b.state === 'gone' || b.y < top - 20 || b.y > bot + 20) continue;
-    const k = b.state === 'pushed' ? 1 - b.t / 0.6 : 1;
-    const r = b.r * (b.state === 'pushed' ? 1 + b.t * 0.8 : 1);
-    ctx.fillStyle = `rgba(${COL.grime},${0.22 * k})`;
-    ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, TAU); ctx.fill();
-    ctx.fillStyle = `rgba(${COL.grimeSpeck},${0.4 * k})`;
-    for (const [dx, dy, sr] of b.sp) { ctx.beginPath(); ctx.arc(b.x + dx, b.y + dy, sr, 0, TAU); ctx.fill(); }
-  }
-}
-
-// 塊：角の丸い四角
-function drawLumps(top, bot) {
-  ctx.lineCap = 'round';
-  for (const L of LUMPS) {
-    if (L.y < top - 20 || L.y > bot + 20) continue;
-    ctx.strokeStyle = COL.lump; ctx.lineWidth = C.LUMP_R * 2;
-    ctx.beginPath(); ctx.moveTo(L.x1, L.y); ctx.lineTo(L.x2, L.y); ctx.stroke();
-    ctx.strokeStyle = COL.lumpEdge; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(L.x1, L.y - C.LUMP_R * 0.55); ctx.lineTo(L.x2, L.y - C.LUMP_R * 0.55); ctx.stroke();
-  }
-}
-
-// 光る粒：まだの粒はゆっくりまたたく。触れた粒は明るく光ったまま
-function drawGrains(top, bot) {
-  for (const g of G.grains) {
-    if (g.y < top - 20 || g.y > bot + 20) continue;
-    if (g.lit) {
-      const age = G.t - g.litT;
-      const halo = ctx.createRadialGradient(g.x, g.y, 0, g.x, g.y, 19);
-      halo.addColorStop(0, 'rgba(255,255,255,0.32)');
-      halo.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.fillStyle = halo;
-      ctx.beginPath(); ctx.arc(g.x, g.y, 19, 0, TAU); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.95)';
-      ctx.beginPath(); ctx.arc(g.x, g.y, C.GRAIN_R * 1.3, 0, TAU); ctx.fill();
-      if (age < 0.7) {
-        const h = age / 0.7;
-        ctx.strokeStyle = `rgba(255,255,255,${0.6 * (1 - h)})`;
-        ctx.lineWidth = Math.max(1.2 / scale, 2 * (1 - h) + 0.5);
-        ctx.beginPath(); ctx.arc(g.x, g.y, 4 + 22 * easeOut(h), 0, TAU); ctx.stroke();
+    ctx.moveTo(s.x0 + nx * C.STREAM_HW, s.y0 + ny * C.STREAM_HW);
+    ctx.lineTo(s.x1 + nx * C.STREAM_HW, s.y1 + ny * C.STREAM_HW);
+    ctx.lineTo(s.x1 - nx * C.STREAM_HW, s.y1 - ny * C.STREAM_HW);
+    ctx.lineTo(s.x0 - nx * C.STREAM_HW, s.y0 - ny * C.STREAM_HW);
+    ctx.closePath(); ctx.fill();
+    // 流れていく筋（流れの向きが分かるように動く）
+    ctx.strokeStyle = 'rgba(225,242,255,0.45)';
+    ctx.lineWidth = 2; ctx.lineCap = 'round';
+    for (let i = 0; i < 7; i++) {
+      const off = (i - 3) * C.STREAM_HW * 0.27;
+      const ph = ((tm * C.STREAM_SPEED * 0.6 + i * 53) % s.len);
+      for (let q = 0; q < 3; q++) {
+        const a = (ph + q * s.len / 3) % s.len;
+        const x = s.x0 + s.dx * a + nx * off, y = s.y0 + s.dy * a + ny * off;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + s.dx * 18, y + s.dy * 18); ctx.stroke();
       }
-    } else {
-      const tw = 0.5 + 0.5 * Math.sin(G.t * 2.2 + g.x * 0.05 + g.y * 0.01);
-      ctx.fillStyle = `rgba(${COL.light},${0.07 + 0.06 * tw})`;
-      ctx.beginPath(); ctx.arc(g.x, g.y, 11, 0, TAU); ctx.fill();
-      ctx.fillStyle = `rgba(${COL.light},${0.45 + 0.25 * tw})`;
-      ctx.beginPath(); ctx.arc(g.x, g.y, C.GRAIN_R, 0, TAU); ctx.fill();
+    }
+  }
+}
+function drawGoo(top, bot) {
+  for (const P of PANES) {
+    if (!P.goo.length || P.top > bot || P.top + H < top) continue;
+    for (const b of P.goo) {
+      ctx.fillStyle = 'rgba(74,92,36,0.88)';
+      ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill();
+    }
+    for (const b of P.goo) { // ぬらっとした光
+      const wob = Math.sin(G.t * 1.5 + b.ph) * 1.5;
+      ctx.fillStyle = 'rgba(190,210,120,0.35)';
+      ctx.beginPath(); ctx.arc(b.x - b.r * 0.3, b.y - b.r * 0.35 + wob * 0.3, b.r * 0.28, 0, TAU); ctx.fill();
+    }
+  }
+}
+function drawRocks(top, bot) {
+  for (const R of G.rocks) {
+    if (!R.alive || R.y < top - 30 || R.y > bot + 30) continue;
+    const rr = R.r * (0.45 + 0.55 * R.hp);
+    ctx.beginPath();
+    for (let i = 0; i < R.jag.length; i++) {
+      const a = R.rot + i / R.jag.length * TAU, q = rr * R.jag[i];
+      const x = R.x + Math.cos(a) * q, y = R.y + Math.sin(a) * q;
+      if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = R.hard === 2 ? '#4b4f5c' : '#7a6c5d'; // 固い岩は青黒く、ふつうの岩は茶色っぽく
+    ctx.fill();
+    ctx.strokeStyle = R.hard === 2 ? 'rgba(150,160,185,0.55)' : 'rgba(190,170,145,0.5)';
+    ctx.lineWidth = R.hard === 2 ? 2.4 : 1.4;
+    ctx.stroke();
+    if (R.hp < 1) { // 削れたひび
+      ctx.strokeStyle = 'rgba(30,24,18,0.6)'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(R.x - rr * 0.5, R.y - rr * 0.2); ctx.lineTo(R.x, R.y + rr * 0.1); ctx.lineTo(R.x + rr * 0.4, R.y - rr * 0.3); ctx.stroke();
     }
   }
 }
 
-function drawDrop(d, a, rr = d.r) {
+// 雫を描く。props があれば、その色（2つの時は、真ん中が新しい方・ふちが古い方）
+function drawDrop(d, a, rr, props, phase) {
   const s = 1 + d.el, inv = 1 / s;
-  const cx = d.x + d.lean + d.jx;
-  const cy = d.y + (d.resting ? -rr * d.el : 0); // 止まった時は、下の面を枠につけたまま
+  const cx = d.x + (d.lean || 0) + (d.jx || 0);
+  const cy = d.y + (d.resting ? -rr * d.el : 0);
   const ca = Math.cos(d.ang), sa = Math.sin(d.ang);
-  const rx = rr * Math.hypot(s * ca, inv * sa);  // 横の大きさ（だいたい）
-  const ry = rr * Math.hypot(s * sa, inv * ca);  // 縦の大きさ（だいたい）
-  // うすい影
+  const rx = rr * Math.hypot(s * ca, inv * sa);
+  const ry = rr * Math.hypot(s * sa, inv * ca);
   ctx.fillStyle = `rgba(8,12,16,${0.22 * a})`;
   ctx.beginPath(); ctx.ellipse(cx + rr * 0.1, cy + rr * 0.18, rr * s, rr * inv, d.ang, 0, TAU); ctx.fill();
-  // 体とふち
   ctx.beginPath(); ctx.ellipse(cx, cy, rr * s, rr * inv, d.ang, 0, TAU);
-  ctx.fillStyle = `rgba(${COL.drop},${0.34 * a})`; ctx.fill();
+  const kinds = (props || []).filter(k => k !== 'water' || props.length === 1);
+  if (!kinds.length) {
+    ctx.fillStyle = `rgba(${COL.drop},${0.34 * a})`;
+  } else {
+    const inner = propRGB(kinds[kinds.length - 1], phase), outer = propRGB(kinds[0], phase + 0.5);
+    const op = kinds[0] === 'water' ? 0.45 : 0.85;
+    const g = ctx.createRadialGradient(cx - rr * 0.15, cy - rr * 0.15, rr * 0.1, cx, cy, rr * 1.05);
+    g.addColorStop(0, `rgba(${inner[0]},${inner[1]},${inner[2]},${op * a})`);
+    g.addColorStop(kinds.length > 1 ? 0.45 : 0.7, `rgba(${inner[0]},${inner[1]},${inner[2]},${op * a})`);
+    g.addColorStop(1, `rgba(${outer[0]},${outer[1]},${outer[2]},${op * a})`);
+    ctx.fillStyle = g;
+  }
+  ctx.fill();
   ctx.lineWidth = Math.max(1.1 / scale, rr * 0.09);
   ctx.strokeStyle = `rgba(${COL.light},${0.55 * a})`; ctx.stroke();
-  // 下の明るいところ（光が集まる）
+  if (kinds.includes('sand')) { // 砂のつぶ
+    ctx.fillStyle = `rgba(60,38,18,${0.6 * a})`;
+    for (const [qx, qy] of [[-0.35, 0.15], [0.25, 0.3], [0.05, -0.3], [0.4, -0.1], [-0.15, 0.45]]) {
+      ctx.beginPath(); ctx.arc(cx + qx * rx, cy + qy * ry, Math.max(0.8, rr * 0.08), 0, TAU); ctx.fill();
+    }
+  }
   ctx.fillStyle = `rgba(${COL.light},${0.2 * a})`;
   ctx.beginPath(); ctx.ellipse(cx, cy + ry * 0.38, rx * 0.5, ry * 0.36, 0, 0, TAU); ctx.fill();
-  // つや
   ctx.fillStyle = `rgba(255,255,255,${0.85 * a})`;
   ctx.beginPath(); ctx.arc(cx - rx * 0.36, cy - ry * 0.4, Math.min(rx, ry) * 0.2, 0, TAU); ctx.fill();
 }
 
-// 水が移る間：二つの間を小さな丸でつなぎ、粒が親友からプレイヤーへ流れる
 function drawBridge() {
   const p = G.player, f = G.friend;
   const k = clamp(G.transferT / C.TRANSFER_TIME, 0, 1);
@@ -1363,12 +1383,11 @@ function drawBridge() {
     }
   }
 }
-
-// 混ざる間：二つの間が太くつながって、相手が吸い込まれる
 function drawMergeBridge(o) {
   const p = G.player;
   const k = Math.min(1, o.mt / C.MERGE_TIME);
-  ctx.fillStyle = `rgba(${COL.drop},0.34)`;
+  const c = propRGB(o.kind, o.phase);
+  ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},0.5)`;
   ctx.beginPath();
   for (let i = 1; i <= 4; i++) {
     const u = i / 5;
@@ -1378,18 +1397,15 @@ function drawMergeBridge(o) {
   }
   ctx.fill();
 }
-
-// 混ざった時の、小さな波紋（救われた時の光より控えめ）
 function drawRipples() {
   for (const r of G.ripples) {
     const h = r.t / 0.6;
-    ctx.strokeStyle = `rgba(${COL.light},${0.35 * (1 - h)})`;
-    ctx.lineWidth = Math.max(1.2 / scale, 1.6 * (1 - h) + 0.4);
-    ctx.beginPath(); ctx.arc(r.x, r.y, r.r0 * (1 + 1.4 * easeOut(h)), 0, TAU); ctx.stroke();
+    const c = r.kind ? propRGB(r.kind, 0) : [238, 245, 250];
+    ctx.strokeStyle = `rgba(${c[0]},${c[1]},${c[2]},${0.6 * (1 - h)})`;
+    ctx.lineWidth = Math.max(1.2 / scale, 2.2 * (1 - h) + 0.5);
+    ctx.beginPath(); ctx.arc(r.x, r.y, r.r0 * (1 + 1.6 * easeOut(h)), 0, TAU); ctx.stroke();
   }
 }
-
-// 救われた瞬間：ふわっと光って、輪が広がる（画面は揺らさない）
 function drawGlow() {
   if (G.glowT < 0 || G.glowT > C.GLOW_TIME) return;
   const p = G.player, g = G.glowT / C.GLOW_TIME;
@@ -1409,28 +1425,185 @@ function drawGlow() {
   }
 }
 
+// 最初の画面：傾いたスマホの印（タップで始まる）
+function drawStartOverlay() {
+  ctx.fillStyle = 'rgba(10,14,18,0.55)';
+  ctx.fillRect(0, 0, sw, sh);
+  const tm = performance.now() / 1000;
+  const cx = sw / 2, cy = sh / 2, w = 58, h = 104;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(Math.sin(tm * 1.8) * 0.3);
+  ctx.strokeStyle = 'rgba(238,245,250,0.9)'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(-w / 2, -h / 2, w, h, 10); else ctx.rect(-w / 2, -h / 2, w, h);
+  ctx.stroke();
+  // 画面の中の雫（傾いた方へ寄る）
+  ctx.fillStyle = 'rgba(190,210,226,0.85)';
+  ctx.beginPath(); ctx.arc(Math.sin(tm * 1.8) * 14, 6, 8, 0, TAU); ctx.fill();
+  ctx.restore();
+  // 押せる印：広がる輪
+  const k = (tm * 0.8) % 1;
+  ctx.strokeStyle = `rgba(238,245,250,${0.5 * (1 - k)})`; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(cx, cy + h / 2 + 34, 8 + k * 16, 0, TAU); ctx.stroke();
+  ctx.fillStyle = 'rgba(238,245,250,0.85)';
+  ctx.beginPath(); ctx.arc(cx, cy + h / 2 + 34, 7, 0, TAU); ctx.fill();
+}
+
 // 切り替えた時だけ、右上に小さな印（文字は出さない）
 function drawIcon() {
   const age = performance.now() / 1000 - ui.iconT;
-  if (age > 1.6) return;
-  const a = clamp((1.6 - age) / 0.6, 0, 1) * 0.85;
-  const x = sw - 44, y = 20, s = 24;
+  if (age > 1.8) return;
+  const a = clamp((1.8 - age) / 0.6, 0, 1) * 0.85;
   ctx.strokeStyle = ctx.fillStyle = `rgba(${COL.light},${a})`;
   ctx.lineWidth = 2;
-  if (ui.icon === 'camA') ctx.strokeRect(x, y, s, s);
-  else if (ui.icon === 'camB') { ctx.strokeRect(x + 5, y - 2, 14, 13); ctx.strokeRect(x + 5, y + 14, 14, 13); }
-  else if (ui.icon === 'soundOn') {
+  if (ui.icon === 'touch') { // タッチ操作に変わった：画面の左半分と右半分
+    ctx.strokeRect(10, 10, sw / 2 - 15, sh - 20);
+    ctx.strokeRect(sw / 2 + 5, 10, sw / 2 - 15, sh - 20);
+    return;
+  }
+  const x = sw - 44, y = 20, s = 24;
+  if (ui.icon === 'soundOn') {
     ctx.beginPath(); ctx.arc(x + s / 2, y + s / 2, 4, 0, TAU); ctx.fill();
     ctx.beginPath(); ctx.arc(x + s / 2, y + s / 2, 8, 0, TAU); ctx.stroke();
     ctx.beginPath(); ctx.arc(x + s / 2, y + s / 2, 12.5, 0, TAU); ctx.stroke();
   } else if (ui.icon === 'soundOff') {
     ctx.beginPath(); ctx.arc(x + s / 2, y + s / 2, 4, 0, TAU); ctx.stroke();
-  } else if (ui.icon === 'pullOn') {   // 小さい丸が、大きい丸にくっついている
-    ctx.beginPath(); ctx.arc(x + 16, y + s / 2, 8, 0, TAU); ctx.stroke();
-    ctx.beginPath(); ctx.arc(x + 4, y + s / 2, 4, 0, TAU); ctx.fill();
-  } else if (ui.icon === 'pullOff') {  // 小さい丸と大きい丸が、離れている
-    ctx.beginPath(); ctx.arc(x + 16, y + s / 2, 8, 0, TAU); ctx.stroke();
-    ctx.beginPath(); ctx.arc(x - 10, y + s / 2, 4, 0, TAU); ctx.fill();
+  }
+}
+
+// ---------------------------------------------------------------------
+//  向こうの部屋の絵（親友の暮らし）
+// ---------------------------------------------------------------------
+const SKIN = '#f1c7a5', HAIR = '#3b2a20', SWEATER = '#3a9d96', PANTS = '#34495e';
+function rr(c, x, y, w, h, r, fill) {
+  c.beginPath();
+  if (c.roundRect) c.roundRect(x, y, w, h, r); else c.rect(x, y, w, h);
+  c.fillStyle = fill; c.fill();
+}
+function circ(c, x, y, r, fill) { c.beginPath(); c.arc(x, y, r, 0, TAU); c.fillStyle = fill; c.fill(); }
+function ell(c, x, y, rx, ry, fill, rot = 0) { c.beginPath(); c.ellipse(x, y, rx, ry, rot, 0, TAU); c.fillStyle = fill; c.fill(); }
+function room(c, wall, floor, warm = true) {
+  c.fillStyle = wall; c.fillRect(0, 0, W, H);
+  const g = c.createRadialGradient(180, 220, 30, 180, 260, 380);
+  g.addColorStop(0, warm ? 'rgba(255,238,200,0.35)' : 'rgba(120,140,200,0.12)');
+  g.addColorStop(1, 'rgba(0,0,0,0.28)');
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+  c.fillStyle = floor; c.fillRect(0, 470, W, 50);
+  c.fillStyle = 'rgba(0,0,0,0.18)'; c.fillRect(0, 466, W, 4);
+}
+function headSide(c, x, y, r, facing) { // 横向きの顔
+  circ(c, x, y, r, SKIN);
+  c.beginPath(); c.arc(x - facing * r * 0.15, y - r * 0.1, r * 1.02, Math.PI * (facing > 0 ? 0.95 : -0.05), Math.PI * (facing > 0 ? 2.05 : 1.05)); c.fillStyle = HAIR; c.fill();
+  circ(c, x + facing * r * 0.5, y + r * 0.05, r * 0.11, '#2b2b2b');
+}
+function drawScene(c, name) {
+  if (name === 'window') { // 窓辺に立っている（後ろ姿）
+    room(c, '#e9d7b6', '#8a5a3c');
+    c.fillStyle = '#f4eee4'; c.fillRect(80, 80, 200, 230);
+    const sky = c.createLinearGradient(0, 90, 0, 300); sky.addColorStop(0, '#16224a'); sky.addColorStop(1, '#3a4f86');
+    c.fillStyle = sky; c.fillRect(90, 90, 180, 210);
+    circ(c, 235, 135, 18, '#f6e7a1');
+    for (const [x, y] of [[120, 120], [150, 160], [205, 105], [255, 210], [110, 240]]) circ(c, x, y, 1.6, '#e8ecff');
+    c.fillStyle = '#f4eee4'; c.fillRect(176, 90, 8, 210); c.fillRect(90, 190, 180, 8);
+    c.fillStyle = '#6b4a2e'; c.fillRect(55, 66, 250, 6);
+    for (const x0 of [62, 264]) { c.fillStyle = '#b5473a'; c.fillRect(x0, 70, 34, 262); c.fillStyle = 'rgba(0,0,0,0.15)'; c.fillRect(x0 + 10, 70, 4, 262); c.fillRect(x0 + 22, 70, 4, 262); }
+    ell(c, 180, 495, 120, 14, '#c98b6b');
+    rr(c, 164, 408, 14, 64, 4, PANTS); rr(c, 182, 408, 14, 64, 4, PANTS);
+    rr(c, 160, 466, 20, 8, 3, '#222'); rr(c, 180, 466, 20, 8, 3, '#222');
+    rr(c, 148, 316, 64, 100, 16, SWEATER);
+    rr(c, 136, 324, 16, 76, 8, SWEATER); rr(c, 208, 324, 16, 76, 8, SWEATER);
+    circ(c, 144, 402, 8, SKIN); circ(c, 216, 402, 8, SKIN);
+    circ(c, 180, 292, 25, HAIR); circ(c, 156, 296, 5, SKIN); circ(c, 204, 296, 5, SKIN);
+    c.beginPath(); c.moveTo(304, 470); c.lineTo(340, 470); c.lineTo(344, 432); c.lineTo(300, 432); c.closePath(); c.fillStyle = '#b5653a'; c.fill();
+    for (const [x, y, rot] of [[312, 410, -0.5], [330, 402, 0.4], [322, 390, 0]]) ell(c, x, y, 9, 20, '#4f9a4a', rot);
+  } else if (name === 'tv') { // テレビの前に座っている
+    room(c, '#d8cbe6', '#7d5a44');
+    c.save(); c.globalAlpha = 0.5; c.fillStyle = '#9fd8ff'; c.beginPath(); c.ellipse(275, 470, 110, 20, 0, 0, TAU); c.fill(); c.restore();
+    rr(c, 205, 420, 140, 50, 4, '#5a4030'); c.fillStyle = '#3e2c21'; c.fillRect(215, 436, 120, 3);
+    rr(c, 215, 300, 125, 118, 6, '#16181c');
+    const scr = c.createLinearGradient(0, 308, 0, 404); scr.addColorStop(0, '#5ec8ff'); scr.addColorStop(1, '#2a6fd1');
+    rr(c, 223, 308, 109, 96, 3, scr);
+    circ(c, 254, 336, 12, '#ffd34d'); ell(c, 292, 400, 50, 22, '#4caf50'); ell(c, 300, 334, 16, 7, '#ffffff');
+    rr(c, 20, 400, 165, 58, 12, '#d39b2c'); rr(c, 12, 322, 44, 130, 14, '#c48a22'); rr(c, 168, 382, 28, 74, 12, '#c48a22');
+    rr(c, 84, 338, 54, 70, 16, SWEATER);
+    rr(c, 120, 392, 62, 20, 9, PANTS); rr(c, 170, 400, 18, 60, 7, PANTS);
+    headSide(c, 112, 316, 22, 1);
+    rr(c, 126, 362, 42, 13, 6, SWEATER); circ(c, 168, 368, 7, SKIN); rr(c, 170, 360, 14, 8, 2, '#333');
+    c.fillStyle = '#7a5a3a'; c.fillRect(40, 140, 4, 180); c.beginPath(); c.moveTo(22, 140); c.lineTo(62, 140); c.lineTo(52, 110); c.lineTo(32, 110); c.closePath(); c.fillStyle = '#f3d9a0'; c.fill();
+  } else if (name === 'desk') { // 机で何かを書いている（左右を入れ替えて描く：机が右）
+    c.save(); c.translate(W, 0); c.scale(-1, 1);
+    room(c, '#cfe2d6', '#7b5b45');
+    rr(c, 228, 110, 112, 232, 4, '#8a6243');
+    const cols = ['#c0392b', '#2e86c1', '#f1c40f', '#27ae60', '#8e44ad', '#e67e22', '#16a085'];
+    for (const [sy, n] of [[118, 8], [176, 7], [234, 8], [292, 6]]) {
+      c.fillStyle = '#6b4a30'; c.fillRect(232, sy + 48, 104, 6);
+      let x = 236;
+      for (let i = 0; i < n; i++) { const bw = 9 + (i * 7 % 6), bh = 34 + (i * 11 % 14); c.fillStyle = cols[(i + sy) % cols.length]; c.fillRect(x, sy + 48 - bh, bw, bh); x += bw + 2; }
+    }
+    const lg = c.createRadialGradient(70, 360, 4, 70, 370, 110); lg.addColorStop(0, 'rgba(255,230,150,0.75)'); lg.addColorStop(1, 'rgba(255,230,150,0)');
+    c.fillStyle = lg; c.fillRect(0, 250, 200, 220);
+    rr(c, 10, 372, 172, 12, 3, '#9b6a43'); c.fillStyle = '#7b5233'; c.fillRect(18, 384, 10, 86); c.fillRect(164, 384, 10, 86); c.fillRect(110, 384, 54, 30);
+    ell(c, 36, 370, 14, 4, '#444'); c.strokeStyle = '#444'; c.lineWidth = 3; c.beginPath(); c.moveTo(36, 368); c.lineTo(44, 320); c.lineTo(66, 312); c.stroke();
+    c.beginPath(); c.moveTo(56, 300); c.lineTo(84, 306); c.lineTo(76, 324); c.lineTo(52, 318); c.closePath(); c.fillStyle = '#f2c14e'; c.fill();
+    rr(c, 66, 364, 52, 8, 1, '#ffffff'); c.fillStyle = '#c0392b'; c.save(); c.translate(96, 360); c.rotate(-0.6); c.fillRect(0, 0, 22, 3); c.restore();
+    rr(c, 150, 402, 44, 9, 3, '#6d4c35'); rr(c, 188, 326, 9, 86, 3, '#6d4c35'); c.fillStyle = '#6d4c35'; c.fillRect(154, 410, 5, 60); c.fillRect(186, 410, 5, 60);
+    rr(c, 140, 336, 48, 70, 15, SWEATER);
+    headSide(c, 150, 314, 21, -1);
+    rr(c, 98, 358, 52, 11, 6, SWEATER); circ(c, 100, 364, 7, SKIN);
+    rr(c, 128, 398, 36, 15, 7, PANTS); rr(c, 124, 400, 14, 64, 6, PANTS);
+    c.restore();
+  } else if (name === 'plant') { // 植物に水をやっている
+    room(c, '#f1dcc5', '#80604a');
+    rr(c, 236, 92, 116, 176, 4, '#f7f2e8');
+    const sky = c.createLinearGradient(0, 100, 0, 260); sky.addColorStop(0, '#9fd3f5'); sky.addColorStop(1, '#d9f0ff');
+    c.fillStyle = sky; c.fillRect(244, 100, 100, 160); circ(c, 318, 132, 15, '#ffe08a');
+    rr(c, 240, 428, 116, 10, 3, '#8a6243'); c.fillStyle = '#7a5236'; c.fillRect(250, 438, 8, 32); c.fillRect(338, 438, 8, 32);
+    for (const [px, col] of [[270, '#c46b3d'], [326, '#b85c33']]) {
+      c.beginPath(); c.moveTo(px - 18, 390); c.lineTo(px + 18, 390); c.lineTo(px + 13, 428); c.lineTo(px - 13, 428); c.closePath(); c.fillStyle = col; c.fill();
+      for (const [dx, dy, rot] of [[-10, -18, -0.5], [10, -20, 0.5], [0, -30, 0], [-16, -6, -1], [16, -8, 1]]) ell(c, px + dx, 390 + dy, 7, 17, '#3f8f45', rot);
+    }
+    circ(c, 326, 352, 7, '#ff8fb1'); circ(c, 326, 352, 3, '#ffd34d');
+    rr(c, 130, 410, 13, 60, 4, PANTS); rr(c, 147, 410, 13, 60, 4, PANTS);
+    rr(c, 118, 322, 52, 94, 15, SWEATER);
+    headSide(c, 144, 300, 22, 1);
+    rr(c, 160, 342, 56, 12, 6, SWEATER); circ(c, 214, 348, 7, SKIN);
+    rr(c, 206, 334, 44, 30, 7, '#6f9fc8'); c.strokeStyle = '#6f9fc8'; c.lineWidth = 5; c.beginPath(); c.moveTo(246, 340); c.lineTo(276, 322); c.stroke();
+    c.lineWidth = 4; c.beginPath(); c.arc(226, 332, 12, Math.PI, 0); c.stroke();
+    for (const [x, y] of [[280, 330], [284, 344], [279, 358], [286, 370]]) circ(c, x, y, 3, '#5aa9e6');
+  } else if (name === 'guitar') { // ギターを弾いている
+    room(c, '#e6ccd5', '#6f5244');
+    rr(c, 22, 82, 80, 100, 4, '#3d5a80'); circ(c, 62, 132, 24, '#ee6c4d');
+    rr(c, 250, 76, 90, 110, 4, '#f2a541'); c.fillStyle = '#7b2d26'; for (let i = 0; i < 4; i++) c.fillRect(256, 90 + i * 24, 78, 8);
+    rr(c, 40, 420, 70, 50, 6, '#5c4033');
+    rr(c, 50, 300, 62, 90, 16, SWEATER);
+    rr(c, 50, 386, 26, 70, 8, PANTS); rr(c, 86, 386, 26, 70, 8, PANTS);
+    circ(c, 81, 274, 23, SKIN); c.beginPath(); c.arc(81, 268, 24, Math.PI * 1.05, Math.PI * 1.95); c.fillStyle = HAIR; c.fill();
+    c.strokeStyle = '#2b2b2b'; c.lineWidth = 2; c.beginPath(); c.arc(73, 276, 4, 0.2, Math.PI - 0.2); c.stroke(); c.beginPath(); c.arc(89, 276, 4, 0.2, Math.PI - 0.2); c.stroke();
+    c.save(); c.translate(80, 368); c.rotate(-0.45);
+    c.fillStyle = '#8b5a2b'; c.fillRect(10, -5, 120, 10); c.fillStyle = '#5a3a1a'; c.fillRect(126, -8, 18, 16);
+    c.restore();
+    circ(c, 78, 372, 30, '#d98c3a'); circ(c, 96, 356, 22, '#d98c3a'); circ(c, 84, 366, 8, '#3b2414');
+    circ(c, 138, 318, 7, SKIN); circ(c, 74, 392, 7, SKIN);
+    rr(c, 262, 398, 78, 72, 6, '#2b2b2b'); circ(c, 301, 434, 24, '#555'); circ(c, 301, 434, 10, '#333'); rr(c, 270, 404, 62, 6, 2, '#888');
+    for (const [x, y, col] of [[160, 250, '#ffffff'], [200, 210, '#ffd34d'], [300, 340, '#ffffff'], [240, 300, '#ffd34d']]) {
+      circ(c, x, y, 6, col); c.fillStyle = col; c.fillRect(x + 4, y - 22, 3, 22); c.fillRect(x + 4, y - 22, 10, 4);
+    }
+  } else if (name === 'bed') { // ベッドで眠っている
+    room(c, '#2f3b5c', '#3f3a4a', false);
+    rr(c, 140, 70, 90, 90, 4, '#c9ced8');
+    c.fillStyle = '#101a38'; c.fillRect(146, 76, 78, 78); circ(c, 200, 102, 12, '#f6e7a1'); circ(c, 206, 98, 10, '#101a38');
+    for (const [x, y] of [[160, 90], [175, 130], [215, 140]]) circ(c, x, y, 1.4, '#e8ecff');
+    const lg = c.createRadialGradient(330, 330, 4, 330, 330, 90); lg.addColorStop(0, 'rgba(255,200,120,0.7)'); lg.addColorStop(1, 'rgba(255,200,120,0)');
+    c.fillStyle = lg; c.fillRect(220, 220, 140, 220); circ(c, 330, 336, 10, '#ffc97a'); c.fillStyle = '#5a4030'; c.fillRect(320, 346, 20, 50);
+    rr(c, 14, 360, 312, 100, 8, '#7a5236'); rr(c, 10, 330, 22, 140, 6, '#6a4630');
+    rr(c, 22, 368, 298, 30, 6, '#e8e3da');
+    rr(c, 26, 362, 72, 30, 10, '#eef1f6');
+    circ(c, 62, 372, 20, SKIN); c.beginPath(); c.arc(60, 366, 21, Math.PI * 0.95, Math.PI * 1.9); c.fillStyle = HAIR; c.fill();
+    c.strokeStyle = '#2b2b2b'; c.lineWidth = 2; c.beginPath(); c.arc(70, 374, 4, 0.2, Math.PI - 0.2); c.stroke();
+    rr(c, 78, 376, 244, 62, 10, '#4c6fa8'); c.fillStyle = 'rgba(255,255,255,0.18)'; for (let i = 0; i < 6; i++) c.fillRect(96 + i * 36, 380, 8, 54);
+    circ(c, 296, 366, 13, '#9a9a9a'); circ(c, 286, 372, 15, '#a8a8a8'); ell(c, 306, 360, 5, 7, '#9a9a9a', 0.4);
+    for (const [x, y, r] of [[96, 340, 4], [110, 318, 6], [128, 292, 8]]) { c.strokeStyle = 'rgba(220,230,255,0.7)'; c.lineWidth = 2; c.beginPath(); c.arc(x, y, r, 0, TAU); c.stroke(); }
   }
 }
 
@@ -1440,7 +1613,6 @@ function drawIcon() {
 const DT = 1 / 120;
 let lastNow = performance.now(), acc = 0;
 function frame(now) {
-  // 大きさが変わったのに resize が来ない時（大きさ0から決まった時など）も、ここで合わせる
   if (window.innerWidth !== sw || window.innerHeight !== sh) resize();
   let dt = (now - lastNow) / 1000;
   lastNow = now;
@@ -1450,14 +1622,15 @@ function frame(now) {
   while (acc >= DT && n < 15) { step(DT); acc -= DT; n++; }
   if (n >= 15) acc = 0;
   const p = G.player;
-  const moving = G.phase === 'move' && !p.resting;
-  Sound.slide(moving ? Math.min(1, Math.hypot(p.vx, p.vy) / C.FALL_SPEED) : 0);
+  const moving = G.phase === 'move' && !p.resting && !G.goo;
+  Sound.slide(moving ? Math.min(1, Math.hypot(p.vx, p.vy) / 110) : 0, moving && G.inStream);
   draw();
   requestAnimationFrame(frame);
 }
 
 addEventListener('resize', resize);
 resize();
+buildCanvases();
 newGame();
 requestAnimationFrame(frame);
 
@@ -1465,38 +1638,31 @@ requestAnimationFrame(frame);
 //  確かめ用（ブラウザの開発ツールから __shizuku で使う。遊ぶ人には見えない）
 // ---------------------------------------------------------------------
 window.__shizuku = {
-  CONFIG, cam, Sound,
-  LEVEL: { LUMPS, GAPS, GRAINS0, GRIME0, SPAWNS0, LANE, SILL_Y, paneTop },
-  sizeFall, sizeSteer, sizeResponse, friendPathX,
+  CONFIG, STATES, PANES, cam, Sound, ctrl,
+  stateKey, stateOf, progress,
   get G() { return G; },
   get paused() { return paused; },
   set paused(v) { paused = !!v; },
-  get pull() { return pull; },
-  set pull(v) { pull = !!v; },
   restart: newGame,
   draw,
-  // 早送りで遊ぶ。controller(G) が -1/0/1 を返す
+  // 早送りで遊ぶ。controller(G) が傾き（-1〜1）を返す
   sim(seconds, controller, dt = DT) {
     simulating = true;
+    G.waiting = false;
     try {
       const n = Math.round(seconds / dt);
-      for (let i = 0; i < n; i++) { testDir = controller ? controller(G) : 0; step(dt); }
-    } finally { testDir = null; simulating = false; }
+      for (let i = 0; i < n; i++) { testTilt = controller ? controller(G) : 0; step(dt); if (G.stats.zoomDone !== null) break; }
+    } finally { testTilt = null; simulating = false; }
     return this.summary();
   },
-  // 1回遊んだ結果
   summary() {
     const s = G.stats;
-    const total = { gap: 0, grime: 0, free: 0 };
-    for (const g of GRAINS0) total[g.kind]++;
     return Object.assign({}, s, {
-      grains: Object.assign({}, s.grains),
-      grainsSum: s.grains.gap + s.grains.grime + s.grains.free,
-      grainsTotal: total,
-      finalR: s.finalR !== null ? s.finalR : G.player.rT,
-      playTime: s.fadeDone,
-      stuckNow: !!G.gstuck,
-      phase: G.phase, t: G.t, pull, camera: cam.mode,
+      revealedCount: s.revealed.filter(Boolean).length,
+      progress: PANES.map(P => +progress(P.k).toFixed(2)),
+      props: stateKey(G.player.props) || 'なし',
+      phase: G.phase, t: +G.t.toFixed(2),
+      playTime: s.landT, // 下の枠に着くまで
     });
   },
 };
